@@ -4,18 +4,13 @@
 // Found here http://bl.ocks.org/jsl6906/ad15363febc1be45301b
 
 
-var margin = {top: 400, right: 480, bottom: 350, left: 480},
+var margin = {top: 400, right: 480, bottom: 350, left: 330},
     radius = Math.min(margin.top, margin.right, margin.bottom, margin.left) - 10;
 
 var hue = d3.scale.category20();
 
-// var luminance = d3.scale.sqrt()
-//     .domain([0, 1e6])
-//     .clamp(true)
-//     .range([90, 20]);
-
 var svg = d3.select("body").append("svg")
-    .attr("width", margin.left + margin.right)
+    .attr("width", margin.left + margin.right+ 300)
     .attr("height", margin.top + margin.bottom)
   .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
@@ -39,8 +34,8 @@ d3.csv('statistics_1000.csv', function (error, data) {
   // The order will change based on user selection in radio boxes
   var root = { "key": "Articles", "values": d3.nest()
     .key(function(d) { return d.degree_level; })
-    .key(function(d) { return d.degree_name; })
     .key(function(d) { return d.year; })
+    .key(function(d) { return d.degree_name; })
     .key(function(d) { return d.title; })
     .rollup(function(leaves) { return d3.sum(leaves, function(d) { return + d.downloads; }); })
     .entries(data)
@@ -48,16 +43,13 @@ d3.csv('statistics_1000.csv', function (error, data) {
 // sortKeys(function(a,b) {return (a.downloads < b.downloads) ? a : b;})
 // sortKeys(function(a,b) { return priority_order.indexOf(a) - priority_order.indexOf(b); })
 
-
-
   // Rename object keys/values generated from d3.nest() to name/children
   renameKeys(root);
   console.log(root);
 
 
   // Compute the initial layout on the entire tree to sum sizes.
-  // Also compute the full name and fill color for each node,
-  // and stash the children so they can be restored as we descend.
+  // Also compute the fill color and true depth for each node,
   partition
       .value(function(d) { return d.size; })
       .nodes(root)
@@ -66,14 +58,14 @@ d3.csv('statistics_1000.csv', function (error, data) {
         d.downloads = d.value;
         d.key = key(d);
         d.fill = fill(d);
+        d.trueDepth = d.depth;
       });
 
-
   // Redefine the value function to use the previously-computed sum.
+  // Change the 'depth < 2' to change max levels shown at once
   partition
       .children(function(d, depth) { return depth < 2 ? d._children : null; })
       .value(function(d) { return d.downloads; });
-
 
 
   // Draw clickable center svg to zoom out
@@ -82,12 +74,10 @@ d3.csv('statistics_1000.csv', function (error, data) {
       .style("fill", "white")
       .on("click", zoomOut);
 
-  center.append("title").text("zoom out");
-
-
  
+  // Put a total download count in the center
   var download_count = svg.append("text")
-        .attr("x",margin.right - margin.left)
+        .attr("x",margin.right - margin.left - 150)
         .attr("y",margin.top - margin.bottom - 40)
         .attr("font-size", 40)
         .attr("text-anchor", "middle")
@@ -95,19 +85,76 @@ d3.csv('statistics_1000.csv', function (error, data) {
         .text("");
 
 
+  // Group for displaying path to current node
+  var path_details = svg.append("g").attr("transform","translate("+450+","+00+")");
+  
+  // Colored indicators next to details for clarity
+  var nodeIndicators = new Array();
+  for (i = 0; i < 3; i++) {
+    nodeIndicators.push(
+      path_details.append("circle")
+        .attr("r", 15)
+        .attr("cy",0 + 50*i)
+        .style("fill","lightgray"));
+  }
 
-  console.log(root);
+  // Display the path to current node
+  var path_level = new Array();
+  for (i = 0; i < 3; i++) {
+    path_level.push(
+      path_details.append("text")
+        .attr("x", 30)
+        .attr("y",5+ 50*i)
+        .attr("font-size", 20)
+        .attr("text-anchor", "left")
+        .style("fill", "gray"));
+  }
 
-  // Draw Nodes
+
+  // Define behavior of elements based on mouseover
+  function nodeMouseOver(n) {
+    download_count.text(n.downloads);
+    if (n.trueDepth == 1) {
+      path_level[0].text(n.name);
+      nodeIndicators[0].style("fill", n.fill);
+    }
+    else if (n.trueDepth == 2) {
+      path_level[0].text(n.parent.name);
+      path_level[1].text(n.name);
+      nodeIndicators[0].style("fill", n.parent.fill);
+      nodeIndicators[1].style("fill", n.fill);
+    }
+    else if (n.trueDepth >= 3) {
+      path_level[0].text(n.parent.parent.name);
+      path_level[1].text(n.parent.name);
+      path_level[2].text(n.name);
+      nodeIndicators[0].style("fill", n.parent.parent.fill);
+      nodeIndicators[1].style("fill", n.parent.fill);
+      nodeIndicators[2].style("fill", n.fill);
+    }
+  }
+
+  // Define behavior of elements based on mouseout
+  function nodeMouseOut(n){
+    download_count.text("");
+    for (i = 0; i < 3; i++) {
+      path_level[i].text("");
+      nodeIndicators[i].style("fill", "lightgray");
+    }
+  }
+
+
+  // Draw Node Blocks
   var path = svg.selectAll("path")
       .data(partition.nodes(root).slice(1))
     .enter().append("path")
       .attr("d", arc)
-      .style("fill", function(d) { return d.fill; })
-      .on("mouseover", function(d){d3.select("#currentNode").text(d.parent.name + " -> " + d.name + " Downloads: " + d.downloads); download_count.text(d.downloads);})
-      .on("mouseout",  function() {d3.select("#currentNode").text("Current Node"); download_count.text("");})
+      .style("fill",   function(d){ return d.fill; })
+      .on("mouseover", function(d){ return nodeMouseOver(d); } )
+      .on("mouseout",  function(d){ return nodeMouseOut(d); })
       .each(function(d) { this._current = updateArc(d); })
       .on("click", zoomIn);
+
 
   function zoomIn(p) {
     if (p.depth > 1) p = p.parent;
@@ -122,13 +169,6 @@ d3.csv('statistics_1000.csv', function (error, data) {
 
 
 
-  function MouseOver(n){
-
-  }
-
-  function nodeMouseOut(n){
-
-  }
 
 
 
@@ -173,8 +213,8 @@ d3.csv('statistics_1000.csv', function (error, data) {
       path.enter().append("path")
           .style("fill-opacity", function(d) { return d.depth === 2 - (root === p) ? 1 : 0; })
           .style("fill", function(d) { return d.fill; })
-          .on("mouseover", function(d){d3.select("#currentNode").text(d.parent.name + " -> " + d.name + " Downloads: " + d.downloads); download_count.text(d.downloads);})
-          .on("mouseout",  function() {d3.select("#currentNode").text("Current Node"); download_count.text("");})
+          .on("mouseover", function(d){ return nodeMouseOver(d); } )
+          .on("mouseout",  function(d){ return nodeMouseOut(d); })
           .on("click", zoomIn)
           .each(function(d) { this._current = enterArc(d); });
 
@@ -193,6 +233,7 @@ function renameKeys(d) {
   delete d.values;
 }
 
+
 function key(d) {
   var k = [], p = d;
   while (p.depth) k.push(p.name), p = p.parent;
@@ -200,34 +241,28 @@ function key(d) {
 }
 
 
-
-
 function fill(d) {
-  if (d.depth <= 1) //First Level (ignoring 0th level that is the object that contains all the data)
-  {
+  if (d.depth <= 1) { //First Level (ignoring 0th level that is the object that contains all the data)
     var fill_info = d3.hcl(hue(d.key));
     fill_info.c *= 1.5;
     fill_info.l *= .8;
-    return fill_info;
   }
-  else //Return lighter color of similar hue as parent
-  {
+  else { //Return lighter color of similar hue as parent
     colorAdjust = d3.scale.linear().domain([0,d.parent.children.length]).range([0,30])
     var fill_info = d3.hcl(d.parent.fill);
     fill_info.l *= 1.12;
     fill_info.h += colorAdjust(d.parent.children.indexOf(d));
-    return fill_info;
   }
-
+  return fill_info;
 }
+
 
 function arcTween(b) {
   var i = d3.interpolate(this._current, b);
   this._current = i(0);
-  return function(t) {
-    return arc(i(t));
-  };
+  return function(t) { return arc(i(t)); };
 }
+
 
 function updateArc(d) {
   return {depth: d.depth, x: d.x, dx: d.dx};
