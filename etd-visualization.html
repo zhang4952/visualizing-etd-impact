@@ -9,19 +9,26 @@
 <body>
 
 <form>
-  <label><input type="radio" name="mode" value="degree"> Degree</label>
-  <label><input type="radio" name="mode" value="year" checked> Year</label>
-  <label><input type="radio" name="mode" value="degree type"> Degree Level</label>
-  <br><br>
-  <input type="text" name="filter" placeholder="Filter">
+  <p>Sort Type</p>
+  <select id="SortMenu">
+    <option value="DL_DN_Y">Degree_Level > Degree_Name > Year</option>
+    <option value="DL_Y_DN">Degree_Level > Year > Degree_Name</option>
+    <option value="Y_DL_DN">Year > Degree_Level > Degree_Name</option>
+  </select>
+  <p>Filter</p>
+  <!-- Will be populated with javascript -->
+  <select id="FilterMenu">
+     <option value="none">No Filter</option>
+  </select>
+  <br>
   <button type="button" onclick="console.log('button clicked')">Apply</button>
 </form>
 
-<!-- <p id = "currentNode">Current Node</p> -->
 
 <script type="text/javascript" src="d3.v3.min.js"></script>
-<script type="text/javascript" src="jquery-3.1.1.min.js"></script>
+<script type="text/javascript" src="scripts.js"></script>
 
-<!-- <script type="text/javascript" src="d3.v4.min.js"></script> -->
 
-<script type="text/javascript" src="scripts_refined.js"></script>
+
+
+
