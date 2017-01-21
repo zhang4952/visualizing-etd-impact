@@ -37,179 +37,33 @@ var partition = d3.layout.partition()
 
 var arc = d3.svg.arc()
     .startAngle( function(d) { return d.x; })
-    .endAngle(   function(d) { return d.x + d.dx - 0.01 / (d.depth + 0.5); })
+    .endAngle(   function(d) { return d.x + d.dx - 0.0001 / (d.depth + 0.5); })
     .innerRadius(function(d) { return radius / 3 * d.depth; })
     .outerRadius(function(d) { return radius / 3 * (d.depth + 1) - 1; });
 
+var center;
+var download_count;
+var path_details;
+var nodeIndicators;
+var pathLevel;
+var path;
 
 
 //=========================================================================================
-// Draw SVG and handle transistions
+// Parse CSC, Draw SVG and handle transistions
 //=========================================================================================
-
-// Parse csv file
 d3.csv('statistics_1000.csv', function (error, data) {
 
-  // Create options in filter drop-down menu
-  populateFilterList(getAllDegreeNames(data));
-
-  // Turn csv data array into properly formatted hierarchy for sunburst graph
-  root = formatPartition(data);
-  console.log(root);
-
-  // Draw clickable center svg to zoom out
-  var center = svg.append('circle')
-      .attr('r', radius / 3)
-      .style('fill', 'white')
-      .on('click', zoomOut);
-
- 
-  // Put a total download count in the center                     //Change info that is displayed here
-  var download_count = svg.append('text')
-      .attr('x', margin.right - margin.left - 150)
-      .attr('y', margin.top - margin.bottom - 40)
-      .attr('font-size', 20)
-      .attr('text-anchor', 'middle')
-      .attr('fill', 'gray')
-      .text('');
+  populateFilterList(getAllDegreeNames(data));  // Create options in filter drop-down menu
+  root = formatPartition(data);                 // Turn csv data array into properly formatted hierarchy for sunburst graph
+  createInfoLabels();                           // Creates elements to display relevant info about current node
+  initialDrawGraph();                           // Inital draw paths for node blocks
 
 
-  // Group for displaying path to current node
-  var path_details = svg.append("g").attr("transform","translate("+450+","+00+")");
-  
-  // Colored indicators next to details for clarity
-  var nodeIndicators = [];
-  for (i = 0; i < 3; i++) {
-    nodeIndicators.push(path_details.append("circle")
-        .attr("r", 15)
-        .attr("cy",0 + 50*i)
-        .style("fill","lightgray"));
-  }
-
-  // Display the path to current node
-  var path_level = [];
-  for (i = 0; i < 3; i++) {
-    path_level.push(path_details.append("text")
-        .attr("x", 30)
-        .attr("y",5+ 50*i)
-        .attr("font-size", 20)
-        .attr("text-anchor", "left")
-        .style("fill", "gray"));
-  }
-
-//=========================================================================================
-// Define the behavior of the page based on hover over blocks
-//=========================================================================================
-
-  // Define behavior of elements based on mouseover
-  function nodeMouseOver(n) {
-    download_count.text(n.downloads);
-
-    // Update the information of the path indicators
-    var i = 3, level = 'n';
-    for (; i > n.trueDepth; i--) {
-      path_level[i-1].text("");
-      nodeIndicators[i-1].style('fill', 'lightgray');
-    }
-    for (; i > 0; i--) {
-      path_level[i-1].text(eval(level+'.name'));
-      nodeIndicators[i-1].style('fill', eval(level+'.fill'));
-      level += '.parent';
-    }
-  }
-
-  // Define behavior of elements based on mouseout
-  function nodeMouseOut(n) {
-  }
-
-//=========================================================================================
-// Inital draw paths for node blocks
-//=========================================================================================
-  var path = svg.selectAll("path")
-      .data(partition.nodes(root).slice(1))
-    .enter().append("path")
-      .attr("d", arc)
-      .style("fill",   function(d){ return d.fill; })
-      .on("mouseover", function(d){ return nodeMouseOver(d); } )
-      .on("mouseout",  function(d){ return nodeMouseOut(d); })
-      .each(function(d) { this._current = updateArc(d); })
-      .on("click", zoomIn);
+});  
 
 
-//=========================================================================================
-// Controls how graph zooms in and out
-//=========================================================================================
-  function zoomIn(p) {
-    if (p.depth > 1) p = p.parent;
-    if (!p.children) return;
-    zoom(p, p);
-  }
 
-  function zoomOut(p) {
-    if (!p.parent) return;
-    zoom(p.parent, p);
-  }
-
-
-//=========================================================================================
-// Handle zooming function of the graph
-//=========================================================================================
-
-  // Zoom to the specified new root.
-  function zoom(root, p) {
-    if (document.documentElement.__transition__) return;
-
-    // Rescale outside angles to match the new layout.
-    var enterArc,
-        exitArc,
-        outsideAngle = d3.scale.linear().domain([0, 2 * Math.PI]);
-
-    function insideArc(d) {
-      return p.key > d.key
-          ? {depth: d.depth - 1, x: 0, dx: 0} : p.key < d.key
-          ? {depth: d.depth - 1, x: 2 * Math.PI, dx: 0}
-          : {depth: 0, x: 0, dx: 2 * Math.PI};
-    }
-
-    function outsideArc(d) {
-      return {depth: d.depth + 1, x: outsideAngle(d.x), dx: outsideAngle(d.x + d.dx) - outsideAngle(d.x)};
-    }
-
-    center.datum(root);
-
-    // When zooming in, arcs enter from the outside and exit to the inside.
-    // Entering outside arcs start from the old layout.
-    if (root === p) enterArc = outsideArc, exitArc = insideArc, outsideAngle.range([p.x, p.x + p.dx]);
-
-    path = path.data(partition.nodes(root).slice(1), function(d) { return d.key; });
-
-    // When zooming out, arcs enter from the inside and exit to the outside.
-    // Exiting outside arcs transition to the new layout.
-    if (root !== p) enterArc = insideArc, exitArc = outsideArc, outsideAngle.range([p.x, p.x + p.dx]);
-
-    // Draw new paths and remove old ones
-    d3.transition().duration(d3.event.altKey ? 7500 : 750).each(function() {
-      path.exit().transition()
-          .style("fill-opacity", function(d) { return d.depth === 1 + (root === p) ? 1 : 0; })
-          .attrTween("d", function(d) { return arcTween.call(this, exitArc(d)); })
-          .remove();
-
-      path.enter().append("path")
-          .style("fill-opacity", function(d) { return d.depth === 2 - (root === p) ? 1 : 0; })
-          .style("fill",   function(d) { return d.fill; })
-          .on("mouseover", function(d) { return nodeMouseOver(d); } )
-          .on("mouseout",  function(d) { return nodeMouseOut(d); })
-          .on("click", zoomIn)
-          .each(function(d) { this._current = enterArc(d); });
-
-      path.transition()
-          .style("fill-opacity", 1)
-          .attrTween("d", function(d) { return arcTween.call(this, updateArc(d)); });
-    });
-  }
-
-
-});  //
 
 
 
@@ -257,7 +111,6 @@ function formatPartition(data) {
 // Set of functions to change how d3.nest() creates the tree hierarchy
 // The order will change based on user selection between 3 options
 //=========================================================================================
-
 // Sort Degree_Level > Degree_Name > Year
 function nestLevel_Name_Year(data) {
   return { "key": "All Articles", "values": d3.nest()
@@ -339,43 +192,48 @@ function groupByDownloads(root) {
     // Node has more than 16 children and is an 'Other' block
     // Puts the many children of an 'Other' block into more managable chunks of size 16 or less
     else if ((root.name.indexOf('Other') != -1) && (root.children.length > 16)) {
-        var childCount   = root.children.length
-        var numSubBlocks = Math.ceil(childCount/16);
-        var subBlocks    = [];
-        var rootArcSize  = root.arcSize;
-
-        for (i = 0; i < numSubBlocks; i++) {
-          var temp  = {};
-          temp.name = root.name + " Group " + (i+1);
-
-          // Extract last 16 of root
-          temp.children = root.children.slice(0,16);
-          root.children = root.children.slice(16);
-
-          // Sum downloads and arc sizes
-          var tempDownloadCount = 0, tempArcSize = 0;
-          for (child in temp.children) {
-            tempDownloadCount += temp.children[child].downloads; 
-            tempArcSize       += temp.children[child].arcSize;
-          }
-          temp.downloads = tempDownloadCount;
-          temp.arcSize   = Math.round(rootArcSize/numSubBlocks);
-
-          // Gives children equal sized arcSize
-          for (child in temp.children)
-            temp.children[child].arcSize = Math.round(temp.arcSize/temp.children.length);
-
-          // Add group to array
-          subBlocks.push(temp);
-        }
-        // Replace root's children with and grouped version
-        root.children = subBlocks;
+        groupOthers(root);
     }
 
     // Recursively group downloads in child nodes
     for (i in root.children)
       groupByDownloads(root.children[i]);
   }
+}
+
+// Groups nodes that are already children of an 'Other' block
+function groupOthers(root) {
+  var childCount   = root.children.length
+  var numSubBlocks = Math.ceil(childCount/16);
+  var subBlocks    = [];
+  var rootArcSize  = root.arcSize;
+
+  for (i = 0; i < numSubBlocks; i++) {
+    var temp  = {};
+    temp.name = root.name + " Group " + (i+1);
+
+    // Extract last 16 of root
+    temp.children = root.children.slice(0,16);
+    root.children = root.children.slice(16);
+
+    // Sum downloads and arc sizes
+    var tempDownloadCount = 0, tempArcSize = 0;
+    for (child in temp.children) {
+      tempDownloadCount += temp.children[child].downloads; 
+      tempArcSize       += temp.children[child].arcSize;
+    }
+    temp.downloads = tempDownloadCount;
+    temp.arcSize   = Math.round(rootArcSize/numSubBlocks);
+
+    // Gives children equal sized arcSize
+    for (child in temp.children)
+      temp.children[child].arcSize = Math.round(temp.arcSize/temp.children.length);
+
+    // Add group to array
+    subBlocks.push(temp);
+  }
+  // Replace root's children with and grouped version
+  root.children = subBlocks;
 }
 
 
@@ -389,11 +247,8 @@ function sumChildrenDownLoads(node) {
       sum += sumChildrenDownLoads(node.children[i]);  
     node.downloads = node.arcSize = sum;
     return sum;
-  }
-  else {
-    node.downloads = node.arcSize = node.size;
-    return node.size;
-  }
+  } 
+  else return node.downloads = node.arcSize = node.size;
 }
 
 
@@ -440,7 +295,6 @@ function getAllDegreeNames(data) {
 
 // Remove Duplicate Degree Names
 function uniqueDegreeNames(array) {
-
   var seen = {};
   return array.filter(function(item) {
       return seen.hasOwnProperty(item) ? false : (seen[item] = true);
@@ -490,11 +344,11 @@ function fill(d) {
     fill_info.l  *= .75;
   }
   else { 
-      var colorAdjust = d3.scale.linear().domain([0,d.parent.children.length]).range([-20,25]);
-      var fill_info   = d3.hcl(d.parent.fill);
-      fill_info.l    *= 1.1;
-      fill_info.h    += colorAdjust(d.parent.children.indexOf(d));
-  }
+    var colorAdjust = d3.scale.linear().domain([0,d.parent.children.length]).range([-20,25]);
+    var fill_info   = d3.hcl(d.parent.fill);
+    fill_info.l    *= 1.1;
+    fill_info.h    += colorAdjust(d.parent.children.indexOf(d));
+  } 
   return fill_info;
 }
 
@@ -517,4 +371,158 @@ function updateArc(d) {
 }
 
 
+//=========================================================================================
+// Controls how graph zooms in and out
+//=========================================================================================
+function zoomIn(p) {
+  if (p.depth > 1) p = p.parent;
+  if (!p.children) return;
+  zoom(p, p);
+}
+
+function zoomOut(p) {
+  if (!p.parent) return;
+  zoom(p.parent, p);
+}
+
+
+//=========================================================================================
+// Handles zooming functionality
+//=========================================================================================
+function zoom(root, p) {
+  if (document.documentElement.__transition__) return;
+
+  // Rescale outside angles to match the new layout.
+  var enterArc,
+      exitArc,
+      outsideAngle = d3.scale.linear().domain([0, 2 * Math.PI]);
+
+  function insideArc(d) {
+    return p.key > d.key
+        ? {depth: d.depth - 1, x: 0, dx: 0} : p.key < d.key
+        ? {depth: d.depth - 1, x: 2 * Math.PI, dx: 0}
+        : {depth: 0, x: 0, dx: 2 * Math.PI};
+  }
+
+  function outsideArc(d) {
+    return {depth: d.depth + 1, x: outsideAngle(d.x), dx: outsideAngle(d.x + d.dx) - outsideAngle(d.x)};
+  }
+
+  center.datum(root);
+
+  // When zooming in, arcs enter from the outside and exit to the inside.
+  // Entering outside arcs start from the old layout.
+  if (root === p) enterArc = outsideArc, exitArc = insideArc, outsideAngle.range([p.x, p.x + p.dx]);
+
+  path = path.data(partition.nodes(root).slice(1), function(d) { return d.key; });
+
+  // When zooming out, arcs enter from the inside and exit to the outside.
+  // Exiting outside arcs transition to the new layout.
+  if (root !== p) enterArc = insideArc, exitArc = outsideArc, outsideAngle.range([p.x, p.x + p.dx]);
+
+  // Draw new paths and remove old ones
+  d3.transition().duration(750).each(function() {
+    path.exit().transition()
+        .style("fill-opacity", function(d) { return d.depth === 1 + (root === p) ? 1 : 0; })
+        .attrTween("d", function(d) { return arcTween.call(this, exitArc(d)); })
+        .remove();
+
+    path.enter().append("path")
+        .style("fill-opacity", function(d) { return d.depth === 2 - (root === p) ? 1 : 0; })
+        .style("fill",   function(d) { return d.fill; })
+        .on("mouseover", function(d) { return nodeMouseOver(d); } )
+        .on("mouseout",  function(d) { return nodeMouseOut(d); })
+        .on("click", zoomIn)
+        .each(function(d) { this._current = enterArc(d); });
+
+    path.transition()
+        .style("fill-opacity", 1)
+        .attrTween("d", function(d) { return arcTween.call(this, updateArc(d)); });
+  });
+}
+
+
+//=========================================================================================
+// Define the behavior of the page based on hover over blocks
+//=========================================================================================
+
+// Define behavior of elements based on mouseover
+function nodeMouseOver(n) {
+  download_count.text(n.downloads);
+
+  // Update the information of the path indicators
+  var i = 3, level = 'n';
+  for (; i > n.trueDepth; i--) {
+    pathLevel[i-1].text("");
+    nodeIndicators[i-1].style('fill', 'lightgray');
+  }
+  for (; i > 0; i--) {
+    pathLevel[i-1].text(eval(level+'.name'));
+    nodeIndicators[i-1].style('fill', eval(level+'.fill'));
+    level += '.parent';
+  }
+}
+
+// Define behavior of elements based on mouseout
+function nodeMouseOut(n) {}
+
+
+//=========================================================================================
+// Creates elements to display relevant info about current node
+//=========================================================================================
+function createInfoLabels() {
+ // Draw clickable center svg to zoom out
+  center = svg.append('circle')
+      .attr('r', radius / 3)
+      .style('fill', 'white')
+      .on('click', zoomOut);
+
+  // Put a total download count in the center                     //Change info that is displayed here
+  download_count = svg.append('text')
+      .attr('x', margin.right - margin.left - 150)
+      .attr('y', margin.top - margin.bottom - 40)
+      .attr('font-size', 20)
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'gray')
+      .text('');
+
+  // Group for displaying path to current node
+  path_details = svg.append("g").attr("transform","translate("+450+","+00+")");
+  
+  // Colored indicators next to details for clarity
+  nodeIndicators = [];
+  for (i = 0; i < 3; i++) {
+    nodeIndicators.push(path_details.append("circle")
+        .attr("r", 15)
+        .attr("cy",0 + 50*i)
+        .style("fill","lightgray"));
+  }
+
+  // Display the path to current node
+  pathLevel = [];
+  for (i = 0; i < 3; i++) {
+    pathLevel.push(path_details.append("text")
+        .attr("x", 30)
+        .attr("y",5+ 50*i)
+        .attr("font-size", 20)
+        .attr("text-anchor", "left")
+        .style("fill", "gray"));
+  }
+}
+
+
+//=========================================================================================
+// Inital draw paths for node blocks
+//=========================================================================================
+function initialDrawGraph() {
+  path = svg.selectAll("path")
+      .data(partition.nodes(root).slice(1))
+    .enter().append("path")
+      .attr("d", arc)
+      .style("fill",   function(d){ return d.fill; })
+      .on("mouseover", function(d){ return nodeMouseOver(d); } )
+      .on("mouseout",  function(d){ return nodeMouseOut(d); })
+      .each(function(d) { this._current = updateArc(d); })
+      .on("click", zoomIn);
+}
 
