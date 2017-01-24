@@ -15,8 +15,9 @@
 // Setup 
 //=========================================================================================
 
-var margin = {top: 400, right: 480, bottom: 350, left: 330},
-    radius = Math.min(margin.top, margin.right, margin.bottom, margin.left) - 10;
+// var margin = {top: 400, right: 480, bottom: 350, left: 330}
+    // radius = Math.min(margin.top, margin.right, margin.bottom, margin.left) - 10;
+var radius = 330;
 
 var hue = d3.scale.category20();
 
@@ -26,10 +27,34 @@ var luminance = d3.scale.sqrt()
     .range([90, 20]);
 
 var svg = d3.select("body").append("svg")
-    .attr("width",  margin.left + margin.right + 300)
-    .attr("height", margin.top  + margin.bottom)
+    // .attr("width",  margin.left + margin.right + 300)
+    .attr("width",  950)
+    // .attr("height", margin.top  + margin.bottom)
+    .attr("height", 800)
   .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    // .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    .attr("transform", "translate("+500+","+400+")");
+
+var information = d3.select("body").append("svg")
+    .attr("width", 400)
+    .attr("height", 600)
+  .append("g")
+    .attr("transform", "translate("+50+","+20+")");
+
+var url_link = "";
+var article_box = information.append("rect")
+    .attr("x", 0)  
+    .attr("y", 220)
+    .attr("width", 340)
+    .attr("height", 330)
+    .attr("rx", 20)
+    .attr("ry", 20)
+    .attr("fill", "white")
+    .attr("stroke", "lightgray")
+    .attr("stroke-width", 4)
+    .on("click", openUrl());
+
+var article_details;
 
 var partition = d3.layout.partition()
     .sort(function(a, b) { return d3.descending(a.arcSize, b.arcSize); })
@@ -52,21 +77,16 @@ var path;
 //=========================================================================================
 // Parse CSC, Draw SVG and handle transistions
 //=========================================================================================
-d3.csv('statistics_1000.csv', function (error, data) {
+d3.csv('statistics-cleaned.csv', function (error, data) {
 
   populateFilterList(getAllDegreeNames(data));  // Create options in filter drop-down menu
   root = formatPartition(data);                 // Turn csv data array into properly formatted hierarchy for sunburst graph
+  console.log(root);
   createInfoLabels();                           // Creates elements to display relevant info about current node
   initialDrawGraph();                           // Inital draw paths for node blocks
 
 
 });  
-
-
-
-
-
-
 
 
 
@@ -80,7 +100,6 @@ function formatPartition(data) {
 
   // Nest function - 3 options for the user to choose from
   var root = nestLevel_Name_Year(data);
-
   renameKeys(root);                   // Rename object keys/values generated from d3.nest() to name/children
   sumChildrenDownLoads(root);         // Recursively calculate the sum of downloads for each node
   groupByDownloads(root);             // Group children if there are too many for a clean graph
@@ -118,7 +137,7 @@ function nestLevel_Name_Year(data) {
     .key(function(d) { return d.degree_name; })
     .key(function(d) { return d.year; })
     .key(function(d) { return d.title; })
-    .rollup(function(leaves) { return d3.sum(leaves, function(d) { return + d.downloads; }); })
+    .rollup(function(leaves) { return leaves;})
     .entries(data) };
 }
 
@@ -129,7 +148,6 @@ function nestLevel_Year_Name(data) {
     .key(function(d) { return d.year; })
     .key(function(d) { return d.degree_name; })
     .key(function(d) { return d.title; })
-    .rollup(function(leaves) { return d3.sum(leaves, function(d) { return + d.downloads; }); })
     .entries(data) };
 }
 
@@ -140,7 +158,6 @@ function nestYear_Level_Name(data) {
     .key(function(d) { return d.degree_level; })
     .key(function(d) { return d.degree_name; })
     .key(function(d) { return d.title; })
-    .rollup(function(leaves) { return d3.sum(leaves, function(d) { return + d.downloads; }); })
     .entries(data) };
 }
 
@@ -248,7 +265,11 @@ function sumChildrenDownLoads(node) {
     node.downloads = node.arcSize = sum;
     return sum;
   } 
-  else return node.downloads = node.arcSize = node.size;
+  else {
+    node.downloads = node.size;
+    node.arcSize = node.size;
+    return node.downloads;
+  }
 }
 
 
@@ -289,7 +310,10 @@ function populateFilterList(names) {
 function getAllDegreeNames(data) {
   var names = [];
   for (i in data)
-    names.push(cleanText(data[i].degree_name.slice(data[i].degree_name.lastIndexOf("in ") + 3)));
+    //names.push(cleanText(data[i].degree_name.slice(data[i].degree_name.lastIndexOf("in ") + 3)));
+    names.push(cleanText(data[i].degree_name));
+
+  // console.log(uniqueDegreeNames(names).sort());
   return uniqueDegreeNames(names).sort();
 }
 
@@ -304,11 +328,20 @@ function uniqueDegreeNames(array) {
 // Cleans the text and makes it more uniform                  //Remember this when filtering out articles
 function cleanText(string) {
   return string
-          .replace('&', 'and', 'g')
-          .replace(/(\r\n|\n|\r|,\s|\t])/gm, ' ')
-          .replace('Sciences', 'Science')
-          .replace(/ *\([^)]*\) */g, "");
-          // .replace(/[^a-zA-z ]/gi,' ');
+      .replace('&', 'and', 'g')
+      .replace(/(\r\n|\n|\r|,\s|\t])/gm, ' ')
+      // .replace('Sciences', 'Science')
+      
+      // .replace('Doctor of Philosophy','')
+      // .replace(/(Doctor|Bachelor|Master)/i, '')
+      .slice(string.indexOf(')')+4)
+      .replace(/[^a-zA-z ]/gi,'')
+      // .replace(/ *\([^)]*\) */g, '')
+      // .slice(string.indexOf(/\)/i)+4)
+      // .replace(/in /i, '')
+      .trim();
+
+
 }
 
 
@@ -318,8 +351,15 @@ function cleanText(string) {
 //=========================================================================================
 function renameKeys(d) {
   d.name = d.key; delete d.key;
-  if (typeof d.values === "number")  d.size = d.values;
-  else d.values.forEach(renameKeys), d.children = d.values;
+  if (d.values[0].hasOwnProperty("author")) { //Leaf node, keep version of the article in original format
+    d.size = eval(d.values[0]["downloads"]);
+    d.original = d.values[0];
+  }
+  else {
+    d.children = d.values;
+    for (i in d.children) 
+      renameKeys(d.children[i]);
+  }
   delete d.values;
 }
 
@@ -375,12 +415,17 @@ function updateArc(d) {
 // Controls how graph zooms in and out
 //=========================================================================================
 function zoomIn(p) {
+
   if (p.depth > 1) p = p.parent;
-  if (!p.children) return;
+  if (!p.children) {
+    openArticleInfo(p);   //Fill article info box instead of zooming in
+    return; 
+  } 
   zoom(p, p);
 }
 
 function zoomOut(p) {
+  d3.selectAll('tspan').remove();
   if (!p.parent) return;
   zoom(p.parent, p);
 }
@@ -451,20 +496,25 @@ function nodeMouseOver(n) {
   download_count.text(n.downloads);
 
   // Update the information of the path indicators
-  var i = 3, level = 'n';
+  var i = 4, level = 'n';
   for (; i > n.trueDepth; i--) {
     pathLevel[i-1].text("");
     nodeIndicators[i-1].style('fill', 'lightgray');
   }
   for (; i > 0; i--) {
-    pathLevel[i-1].text(eval(level+'.name'));
+    if (eval(level+".name").includes(')'))
+      pathLevel[i-1].text(eval(level+".name.slice("+level+".name.indexOf(')')+4)"));
+    else
+      pathLevel[i-1].text(eval(level+".name"));
     nodeIndicators[i-1].style('fill', eval(level+'.fill'));
     level += '.parent';
   }
 }
 
+
 // Define behavior of elements based on mouseout
-function nodeMouseOut(n) {}
+function nodeMouseOut(n) {
+}
 
 
 //=========================================================================================
@@ -479,20 +529,18 @@ function createInfoLabels() {
 
   // Put a total download count in the center                     //Change info that is displayed here
   download_count = svg.append('text')
-      .attr('x', margin.right - margin.left - 150)
-      .attr('y', margin.top - margin.bottom - 40)
+      .attr('x', 0)
+      .attr('y', 0)
       .attr('font-size', 20)
       .attr('text-anchor', 'middle')
       .attr('fill', 'gray')
       .text('');
 
-  // Group for displaying path to current node
-  path_details = svg.append("g").attr("transform","translate("+450+","+00+")");
-  
+
   // Colored indicators next to details for clarity
   nodeIndicators = [];
-  for (i = 0; i < 3; i++) {
-    nodeIndicators.push(path_details.append("circle")
+  for (i = 0; i < 4; i++) {
+    nodeIndicators.push(information.append("circle")
         .attr("r", 15)
         .attr("cy",0 + 50*i)
         .style("fill","lightgray"));
@@ -500,11 +548,11 @@ function createInfoLabels() {
 
   // Display the path to current node
   pathLevel = [];
-  for (i = 0; i < 3; i++) {
-    pathLevel.push(path_details.append("text")
+  for (i = 0; i < 4; i++) {
+    pathLevel.push(information.append("text")
         .attr("x", 30)
         .attr("y",5+ 50*i)
-        .attr("font-size", 20)
+        .attr("font-size", 18)
         .attr("text-anchor", "left")
         .style("fill", "gray"));
   }
@@ -526,3 +574,39 @@ function initialDrawGraph() {
       .on("click", zoomIn);
 }
 
+//=========================================================================================
+// Fills the information box with article details
+//=========================================================================================
+function openArticleInfo(n) {
+  d3.selectAll('tspan').remove();        //Remove previous article info display
+  if (n.hasOwnProperty('original')) {
+    // console.log(n.original);
+    // console.log(n.original['author']);
+    var o = n.original
+    article_info = ['Author: ' + o.author,
+                    'Year: '+ o.year,
+                    'Downloads: ' + o.downloads,
+                    'Degree Level: ' + o.degree_level,
+                    'Degree Name: ' + cleanText(o.degree_name),
+                    'Title: '+ o.title.substring(0,o.title.lastIndexOf(' ', 40)),
+                    '   ' +    o.title.substring(o.title.lastIndexOf(' ', 40), o.title.lastIndexOf(' ', 85)),
+                    '   ' +    o.title.substring(o.title.lastIndexOf(' ', 85)),
+                    'Url: '+ o.url,
+                    'CLICK BOX TO READ'];
+
+    article_details = information
+      .append("text").selectAll("tspan")
+      .data(article_info)
+      .enter().append("tspan")
+        .attr('x', 20)
+        .attr('y', function(d,i){ return 250 + i*25})
+        .attr('font-size', 14)
+        .attr('stroke-width', 2)
+        .text(function(d){ return d; })
+    }
+}
+
+
+function openUrl() {
+
+}
