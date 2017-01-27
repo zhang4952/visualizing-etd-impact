@@ -7,22 +7,33 @@
 </head>
 
 <body>
+  <div id="sequence" height=120 width=1400 >
+    <svg id = 'trail' height=50 width=800>
+      
+    </svg>
+    <g id="hyperlink" x=100px y=100px><a id="thesisLink" href="" target="_blank"> </a></g>
+
+  </div>
 
 <form>
-  <p>Sort Type</p>
-  <select id="SortMenu">
-    <option value="DL_DN_Y">Degree_Level > Degree_Name > Year</option>
-    <option value="DL_Y_DN">Degree_Level > Year > Degree_Name</option>
-    <option value="Y_DL_DN">Year > Degree_Level > Degree_Name</option>
+  <br><br>
+  <!-- <p>Sort Type</p> -->
+  <select id="SortMenu" style="float:right" onchange="refreshGraph(this)">
+    <option value="1">Degree Level >> Degree Name >> Year</option>
+    <option value="2">Degree Level >> Year >> Degree Name</option>
+    <option value="3">Year >> Degree Level >> Degree Name</option>
   </select>
-  <p>Filter</p>
+  <!-- <p>Filter</p> -->
+  <br>
   <!-- Will be populated with javascript -->
-  <select id="FilterMenu">
+  <select id="FilterMenu" style="float:right" onchange="filterGraph(this)">
      <option value="none">No Filter</option>
   </select>
-  <br>
-  <button type="button" onclick="console.log('button clicked')">Apply</button>
+  <!-- <br> -->
+
+  
 </form>
+<div id="graph" position:absolute></div>
 
 
 <script type="text/javascript" src="d3.v3.min.js"></script>
