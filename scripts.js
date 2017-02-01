@@ -57,8 +57,7 @@ var freezeBreadCrumb = false;     // Freeze the breadcrumb trail when an individ
 //=========================================================================================
 d3.csv('CleanCSV.csv', function (error, data) {
   parsedCSV = data;
-
-  populateFilterList(getAllDegreeNames(parsedCSV)); // Create options in filter drop-down menu
+  populateFilterList(getAllDegreeTopics(parsedCSV)); // Create options in filter drop-down menu
   root = formatPartition(parsedCSV, 1);             // Turn csv data array into properly formatted hierarchy for sunburst graph
   currentRoot = currentCenter = root;
   createInfoLabels(root);                               // Creates elements to display relevant info about current node
@@ -94,7 +93,7 @@ function filterGraph(filterList) {
   root = formatPartition(newCSV); 
   currentRoot = currentCenter = root;
   createInfoLabels(root);                                   
-  drawGraph();   
+  drawGraph();  
   d3.select('#trail').select('g').select('text')[0][0].innerHTML = root.name; 
 }
 
@@ -106,11 +105,13 @@ function filterGraph(filterList) {
 //=========================================================================================
 function formatPartition(data) {
   if (currentFilterType != 'none')
-    data = data.filter(function(i){ return i.degree_name_2.substring(0,32) == currentFilterType; })
+    data = data.filter(function(i){ return i.degree_topic.trim() == currentFilterType; })
 
   // Nest function - changes based on sort / filter types
   var root = nestSelector(data, currentSortType, currentFilterType!='none');
   renameKeys(root);                   // Rename object keys/values generated from d3.nest() to name/children
+  if (currentFilterType != 'none')
+    root.name = 'All ' + currentFilterType;
   sumChildrenDownLoads(root);         // Recursively calculate the sum of downloads for each node
   groupByDownloads(root);             // Group children if there are too many for a clean graph
   countThesis(root);                  // Recursively count the number of theses for each node
@@ -149,20 +150,20 @@ function formatPartition(data) {
 //=========================================================================================
 //Chooses which nest to run
 function nestSelector(data, index, filter) {
-  if (!filter) {
+  // if (!filter) {
     switch(index) {
       case 1: return nestLevel_Name_Year(data);
       case 2: return nestLevel_Year_Name(data);
       case 3: return nestYear_Level_Name(data);
     }
-  } 
-  else {
-    switch(index) {
-      case 1: return nestLevel_Name_Year_Filtered(data);
-      case 2: return nestLevel_Year_Name_Filtered(data);
-      case 3: return nestYear_Level_Name_Filtered(data);
-    }
-  }
+  // } 
+  // else {
+  //   switch(index) {
+  //     case 1: return nestLevel_Name_Year_Filtered(data);
+  //     case 2: return nestLevel_Year_Name_Filtered(data);
+  //     case 3: return nestYear_Level_Name_Filtered(data);
+  //   }
+  // }
 
   // Sort Degree_Level > Degree_Name > Year
   function nestLevel_Name_Year(data) {
@@ -171,7 +172,7 @@ function nestSelector(data, index, filter) {
       .key(function(d) { return d.degree_name_2; })
       .key(function(d) { return d.year; })
       .key(function(d) { return d.title; })
-      .rollup(function(leaves) { return leaves;})
+      // .rollup(function(leaves) { return leaves;})
       .entries(data) };
   }
   // Sort Degree_Level > Year > Degree_Name
@@ -195,33 +196,33 @@ function nestSelector(data, index, filter) {
 
 
   // Sort Degree_Level > Degree_Name > Year
-  function nestLevel_Name_Year_Filtered(data) {
-    return { "key": "All Theses", "values": d3.nest()
-      .key(function(d) { return d.degree_name_1; })
-      // .key(function(d) { return d.degree_name_2; })
-      .key(function(d) { return d.year; })
-      .key(function(d) { return d.title; })
-      .rollup(function(leaves) { return leaves;})
-      .entries(data) };
-  }
-  // Sort Degree_Level > Year > Degree_Name
-  function nestLevel_Year_Name_Filtered(data) {
-    return { "key": "All Theses", "values": d3.nest()
-      .key(function(d) { return d.degree_name_1; })
-      .key(function(d) { return d.year; })
-      // .key(function(d) { return d.degree_name_2; })
-      .key(function(d) { return d.title; })
-      .entries(data) };
-  }
-  // Sort Year > Degree_Level > Degree_Name
-  function nestYear_Level_Name_Filtered(data) {
-      return { "key": "All Theses", "values": d3.nest()
-      .key(function(d) { return d.year; })
-      .key(function(d) { return d.degree_name_1; })
-      // .key(function(d) { return d.degree_name_2; })
-      .key(function(d) { return d.title; })
-      .entries(data) };
-  }
+  // function nestLevel_Name_Year_Filtered(data) {
+  //   return { "key": "All Theses", "values": d3.nest()
+  //     .key(function(d) { return d.degree_name_1; })
+  //     .key(function(d) { return d.degree_name_2; })
+  //     .key(function(d) { return d.year; })
+  //     .key(function(d) { return d.title; })
+  //     .rollup(function(leaves) { return leaves;})
+  //     .entries(data) };
+  // }
+  // // Sort Degree_Level > Year > Degree_Name
+  // function nestLevel_Year_Name_Filtered(data) {
+  //   return { "key": "All Theses", "values": d3.nest()
+  //     .key(function(d) { return d.degree_name_1; })
+  //     .key(function(d) { return d.year; })
+  //     .key(function(d) { return d.degree_name_2; })
+  //     .key(function(d) { return d.title; })
+  //     .entries(data) };
+  // }
+  // // Sort Year > Degree_Level > Degree_Name
+  // function nestYear_Level_Name_Filtered(data) {
+  //     return { "key": "All Theses", "values": d3.nest()
+  //     .key(function(d) { return d.year; })
+  //     .key(function(d) { return d.degree_name_1; })
+  //     .key(function(d) { return d.degree_name_2; })
+  //     .key(function(d) { return d.title; })
+  //     .entries(data) };
+  // }
 }
 
 
@@ -355,27 +356,27 @@ function countThesis(node) {
 // Maybe add secondary option to check if user wants only a particular degree level
 //=========================================================================================
 
-// Adds degree names to filter dropdown menu
-function populateFilterList(names) {
+// Adds filters dropdown menu
+function populateFilterList(filterItems) {
   var filterMenu = document.getElementById("FilterMenu");
-  for (i in names) {
+  for (i in filterItems) {
     var option   = document.createElement('option');
-    option.text  = names[i].substring(0,32);
-    option.value = names[i].substring(0,32);
+    option.text  = filterItems[i];
+    option.value = filterItems[i];
     filterMenu.add(option, 0);
   }
 }
 
-// Gets the degree names from the parsed csv
-function getAllDegreeNames(data) {
-  var names = [];
+// Gets the degree topics from the parsed csv
+function getAllDegreeTopics(data) {
+  var list = [];
   for (i in data)
-    names.push(cleanText(data[i].degree_name_2));
+    list.push(cleanText(data[i].degree_topic));
 
-  return uniqueDegreeNames(names).sort();
+  return uniqueListItems(list).sort();
 
-    // Remove Duplicate Degree Names
-  function uniqueDegreeNames(array) {
+  // Remove Duplicate Degree Names
+  function uniqueListItems(array) {
     var seen = {};
     return array.filter(function(item) {
         return seen.hasOwnProperty(item) ? false : (seen[item] = true);
@@ -385,7 +386,7 @@ function getAllDegreeNames(data) {
                  
 // Cleans the text and makes it more uniform                  //Remember this when filtering out articles
 function cleanText(string) {
-  return string;
+  return string.trim();
 
   if (string.length <= 10) return string;
   if (string.indexOf(')') != -1)
@@ -404,12 +405,12 @@ function cleanText(string) {
 }
 
 
-
 //=========================================================================================
 // Rename the keys created by d3.nest() into more descriptive names
 //=========================================================================================
 function renameKeys(d) {
-  d.name = d.key; delete d.key;
+  // console.log(d);
+  d.name = d.key.trim(); delete d.key;
   if (d.values[0].hasOwnProperty("author")) { //Leaf node, keep version of the article in original format
     d.size = eval(d.values[0]["downloads"]);
     d.original = d.values[0];
@@ -500,9 +501,6 @@ function zoomOut(p) {
   zoom(p.parent, p);
 }
 
-
-
-
 //=========================================================================================
 // Handles zooming functionality
 //=========================================================================================
@@ -569,19 +567,21 @@ function zoom(root, p) {
     .attr('id', 'nodeLabel')
     .attr('transform', function(d) { return 'rotate(' + computeTextRotation(d) + ')'; })
     .attr('x', function(d) {
+      if (d.hasOwnProperty('original')) d.y = radius/3 * d.depth;
       if (computeTextRotation(d)+90 < 180) return d.y + 10;
       else return -d.y -10; })
     .attr('dy', '.1em') 
     .attr('font-size', 11)
     .attr('fill', 'white')
     .attr('fill-opacity', 0)
-    .transition().delay(750)
+    .transition().delay(600)
     .attr('fill-opacity', function(d) { return (d.dx*45) > 5 ? 1 : 0;}).duration(500)
     .attr('text-anchor', function(d){ 
       if (computeTextRotation(d)+90 < 180) return 'start';
       else return 'end'; })
+    .attr('alignment-baseline', 'middle')
     .attr('pointer-events', 'none')
-    .text(function(d) { return cleanText(d.name).substring(0,18); });
+    .text(function(d) { return cleanText(d.name).substring(0,17); });
 
   // Update center info and breadcrumbs
   nodeMouseOut(root); 
@@ -700,6 +700,7 @@ function drawGraph() {
       .attr('id', 'nodeLabel')
       .attr('transform', function(d) { return 'rotate(' + computeTextRotation(d) + ')'; })
       .attr('x', function(d) {
+        if (d.hasOwnProperty('original')) d.y = radius/3 * d.depth;
         if (computeTextRotation(d)+90 < 180) return d.y + 10;
         else return -d.y -10; })
       .attr('dy', '.1em') 
@@ -711,8 +712,9 @@ function drawGraph() {
       .attr('text-anchor', function(d){ 
         if (computeTextRotation(d)+90 < 180) return 'start';
         else return 'end'; })
+      .attr('alignment-baseline', 'middle')
       .attr('pointer-events', 'none')
-      .text(function(d) { return cleanText(d.name).substring(0,18); });
+      .text(function(d) { return cleanText(d.name).substring(0,17); });
 }
 
 function computeTextRotation(d) {
@@ -722,7 +724,6 @@ function computeTextRotation(d) {
   else return temp+180;             // Add 180 so that text appears right side up
   return temp;
 }
-
 
 
 //=========================================================================================
@@ -826,6 +827,90 @@ function updateBreadcrumbs(pathArray) {
   }
 }
 
+
+
+//=========================================================================================
+// Allow user to download csv from current root
+//=========================================================================================
+function downloadCsv() {
+  console.log("In Download CSV Function")
+
+
+  var items = [];
+  grabOriginals(currentCenter, items);
+  console.log(items);
+
+
+  // var csvContent = "data:text/csv;charset=utf-8,";
+  // items.forEach(function(infoArray, index){
+
+  //  dataString = infoArray.join(",");
+  //  csvContent += index < items.length ? dataString+ "\n" : dataString;
+
+  // }); 
+
+
+  var csvContent = convertToCSV(items);
+  // console.log(csvContent);
+
+
+  // var encodedUri = encodeURI(csvContent);
+  // var link = document.createElement("a");
+  // link.setAttribute("href", encodedUri);
+  // link.setAttribute("download", "data.csv");
+  // document.body.appendChild(link); // Required for FF
+
+  // link.click(); 
+
+
+  var encodedUri = encodeURI(csvContent);
+  var newWindow = window.open('')
+  var link = newWindow.document.createElement('a');
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "data.csv");
+  document.body.appendChild(link); // Required for FF
+
+  link.click(); 
+
+  // var newWindow = window.open('')
+  // newWindow.document.body.innerHTML = csvText;
+
+
+  function grabOriginals(node) {
+    if (node.hasOwnProperty("original")) 
+        items.push(node.original);
+    else 
+      for (i in node._children) 
+        grabOriginals(node._children[i]);
+  }
+
+  function convertToCSV(items) {
+    if (items.length < 1) return '';
+    // var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
+
+    var csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += getHeader(items[0]);
+
+    for (i in items) {
+        var line = '';
+        for (var index in items[i]) {
+          console.log(items[i][index]);
+          if ((line.indexOf(' ') != -1) || (line.indexOf(',') != -1))
+            line = "\"" + line + "\"";
+          if (line != '') line += ','
+            line += items[i][index];
+        }
+        csvContent += line + '\r\n';
+    }
+    return csvContent;
+  }
+
+  function getHeader(example) {
+    console.log( Object.keys(example).toString())
+    return Object.keys(example).toString() + '\r\n';
+  }
+
+}
 
 
 
