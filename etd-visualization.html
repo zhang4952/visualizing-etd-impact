@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>ETD Visualization</title>
+  <link rel="stylesheet" type="text/css" href="style.css" >
+  <h3 style = "text-align: center">ETD Visualization</h3>
+</head>
+
+<body>
+  <div id="sequence" height=120 width=1400>
+    <svg id = 'trail' height=50 width=1400>
+      
+    </svg>
+    <!-- <g id="hyperlink" x=100px y=100px><a id="thesisLink" href="" target="_blank"> </a></g> -->
+
+  </div>
+
+<form>
+  <br><br>
+  <!-- <p>Sort Type</p> -->
+  <select id="SortMenu" style="float:right" onchange="refreshGraph(this)">
+    <option value="1">Degree Level >> Degree Name >> Year</option>
+    <option value="2">Degree Level >> Year >> Degree Name</option>
+    <option value="3">Year >> Degree Level >> Degree Name</option>
+  </select>
+  <!-- <p>Filter</p> -->
+  <br>
+  <!-- Will be populated with javascript -->
+  <select id="FilterMenu" style="float:right" onchange="filterGraph(this)">
+     <option value="none">No Filter</option>
+  </select>
+  <br>
+
+  <button id="DownloadCsv" type="button" style="float:right" onclick="downloadCsv()">Download CSV</button>
+  
+</form>
+<div id="graph"></div>
+
+
+<script type="text/javascript" src="d3.v3.min.js"></script>
+<script type="text/javascript" src="scripts.js"></script>
+
+
+
+
+
