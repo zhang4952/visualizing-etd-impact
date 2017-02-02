@@ -9,6 +9,24 @@
 //=========================================================================================
 
 
+//=========================================================================================
+// Input CSV Formatting and Info
+//=========================================================================================
+// This code expects the input csv to have the following column names and mapping, in the given order
+// Expected               //Default may be          //Represents
+// id                       id.only  
+// url                      dc.identifier.uri
+// author                   dc.creator
+// title                    dc.title
+// year                     dc.description
+// multiple_grad_year       multiple grad year
+// degree_level             dc.degree.level
+// degree_fullName          dc.degree.name
+// degree_type              dc.degree.name 1 
+// degree_field             dc.degree.name 2
+// degree_topic             dc.degree.topic
+// downloads                downloads
+
 
 //=========================================================================================
 // Setup 
@@ -168,8 +186,8 @@ function nestSelector(data, index, filter) {
   // Sort Degree_Level > Degree_Name > Year
   function nestLevel_Name_Year(data) {
     return { "key": "All Theses", "values": d3.nest()
-      .key(function(d) { return d.degree_name_1; })
-      .key(function(d) { return d.degree_name_2; })
+      .key(function(d) { return d.degree_type; })
+      .key(function(d) { return d.degree_field; })
       .key(function(d) { return d.year; })
       .key(function(d) { return d.title; })
       // .rollup(function(leaves) { return leaves;})
@@ -178,9 +196,9 @@ function nestSelector(data, index, filter) {
   // Sort Degree_Level > Year > Degree_Name
   function nestLevel_Year_Name(data) {
     return { "key": "All Theses", "values": d3.nest()
-      .key(function(d) { return d.degree_name_1; })
+      .key(function(d) { return d.degree_type; })
       .key(function(d) { return d.year; })
-      .key(function(d) { return d.degree_name_2; })
+      .key(function(d) { return d.degree_field; })
       .key(function(d) { return d.title; })
       .entries(data) };
   }
@@ -188,8 +206,8 @@ function nestSelector(data, index, filter) {
   function nestYear_Level_Name(data) {
       return { "key": "All Theses", "values": d3.nest()
       .key(function(d) { return d.year; })
-      .key(function(d) { return d.degree_name_1; })
-      .key(function(d) { return d.degree_name_2; })
+      .key(function(d) { return d.degree_type; })
+      .key(function(d) { return d.degree_field; })
       .key(function(d) { return d.title; })
       .entries(data) };
   }
@@ -198,8 +216,8 @@ function nestSelector(data, index, filter) {
   // Sort Degree_Level > Degree_Name > Year
   // function nestLevel_Name_Year_Filtered(data) {
   //   return { "key": "All Theses", "values": d3.nest()
-  //     .key(function(d) { return d.degree_name_1; })
-  //     .key(function(d) { return d.degree_name_2; })
+  //     .key(function(d) { return d.degree_type; })
+  //     .key(function(d) { return d.degree_field; })
   //     .key(function(d) { return d.year; })
   //     .key(function(d) { return d.title; })
   //     .rollup(function(leaves) { return leaves;})
@@ -208,9 +226,9 @@ function nestSelector(data, index, filter) {
   // // Sort Degree_Level > Year > Degree_Name
   // function nestLevel_Year_Name_Filtered(data) {
   //   return { "key": "All Theses", "values": d3.nest()
-  //     .key(function(d) { return d.degree_name_1; })
+  //     .key(function(d) { return d.degree_type; })
   //     .key(function(d) { return d.year; })
-  //     .key(function(d) { return d.degree_name_2; })
+  //     .key(function(d) { return d.degree_field; })
   //     .key(function(d) { return d.title; })
   //     .entries(data) };
   // }
@@ -218,8 +236,8 @@ function nestSelector(data, index, filter) {
   // function nestYear_Level_Name_Filtered(data) {
   //     return { "key": "All Theses", "values": d3.nest()
   //     .key(function(d) { return d.year; })
-  //     .key(function(d) { return d.degree_name_1; })
-  //     .key(function(d) { return d.degree_name_2; })
+  //     .key(function(d) { return d.degree_type; })
+  //     .key(function(d) { return d.degree_field; })
   //     .key(function(d) { return d.title; })
   //     .entries(data) };
   // }
@@ -350,7 +368,7 @@ function countThesis(node) {
 }
 
 //=========================================================================================
-// Populates filter list with degree_names
+// Populates filter list with degree_fields
 // Nest will only keep articles of that degree name
 // That degree becomes root, followed by year
 // Maybe add secondary option to check if user wants only a particular degree level
@@ -384,7 +402,7 @@ function getAllDegreeTopics(data) {
   }  
 }
                  
-// Cleans the text and makes it more uniform                  //Remember this when filtering out articles
+// Cleans the text and makes it more uniform                  
 function cleanText(string) {
   return string.trim();
 
@@ -835,25 +853,13 @@ function updateBreadcrumbs(pathArray) {
 function downloadCsv() {
   console.log("In Download CSV Function")
 
+  // var items = grabOriginals(currentCenter, []);
 
-  var items = [];
-  grabOriginals(currentCenter, items);
-  console.log(items);
-
-
-  // var csvContent = "data:text/csv;charset=utf-8,";
-  // items.forEach(function(infoArray, index){
-
-  //  dataString = infoArray.join(",");
-  //  csvContent += index < items.length ? dataString+ "\n" : dataString;
-
-  // }); 
+  // Creates csv text from array of thesis objects
+  var csvContent = convertToCSVText(grabOriginals(currentCenter, []));
 
 
-  var csvContent = convertToCSV(items);
-  // console.log(csvContent);
-
-
+//Replaces viz
   // var encodedUri = encodeURI(csvContent);
   // var link = document.createElement("a");
   // link.setAttribute("href", encodedUri);
@@ -863,54 +869,108 @@ function downloadCsv() {
   // link.click(); 
 
 
-  var encodedUri = encodeURI(csvContent);
-  var newWindow = window.open('')
-  var link = newWindow.document.createElement('a');
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "data.csv");
-  document.body.appendChild(link); // Required for FF
+//Create download of unknown
+  // var a         = document.createElement('a');
+  // a.href        = encodeURI(csvContent);
+  // a.target      = '_blank';
+  // a.download    = 'export.csv';
 
-  link.click(); 
+  // console.log(a);
+
+  // document.body.appendChild(a);
+  // a.click();
+
+
+  //Generate a file name
+
+
+
+// var uri = 'data:text/csv;charset=UTF-8,' + escape(CSV);
+
+// var link = document.createElement("a");
+
+// link.href = uri;
+
+// link.style = "visibility:hidden";
+
+// link.download = "export.csv";
+
+// //this part will append the anchor tag and remove it after automatic click
+
+// document.body.appendChild(link);
+
+// link.click();
+
+// document.body.removeChild(link);
+
+//Create download 2
+  data = encodeURI(csvContent);
+
+        link = document.createElement('a');
+        link.setAttribute('href', data);
+        link.setAttribute('download', 'export.csv');
+        link.click();
+
+
+//Open text in new tab
+  // var encodedUri = encodeURI(csvContent);
+  // var newWindow = window.open('')
+  // var link = newWindow.document.createElement('a');
+  // link.setAttribute("href", encodedUri);
+  // link.setAttribute("download", "data.csv");
+  // document.body.appendChild(link); // Required for FF
+
+  // link.click(); 
 
   // var newWindow = window.open('')
   // newWindow.document.body.innerHTML = csvText;
 
 
-  function grabOriginals(node) {
+  // Get original format of thesis from leaf nodes
+  function grabOriginals(node, items) {
     if (node.hasOwnProperty("original")) 
         items.push(node.original);
     else 
       for (i in node._children) 
-        grabOriginals(node._children[i]);
+        grabOriginals(node._children[i], items);
+    return items;
   }
 
-  function convertToCSV(items) {
+  // Creates csv text from array of thesis objects
+  function convertToCSVText(items) {
     if (items.length < 1) return '';
-    // var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
-
-    var csvContent = "data:text/csv;charset=utf-8,";
+          //download or application
+    var csvContent = "data:download/csv;charset=utf-8,";
     csvContent += getHeader(items[0]);
 
     for (i in items) {
-        var line = '';
-        for (var index in items[i]) {
-          console.log(items[i][index]);
-          if ((line.indexOf(' ') != -1) || (line.indexOf(',') != -1))
-            line = "\"" + line + "\"";
-          if (line != '') line += ','
-            line += items[i][index];
+      var line = '';
+      for (var index in items[i]) {
+        items[i][index] = items[i][index].replace(/[\r\n]+/g," ");
+        if (items[i][index].indexOf && (items[i][index].indexOf(',') !== -1 || items[i][index].indexOf('"') !== -1)) {
+          items[i][index] = '"' + items[i][index].replace(/"/g, '""') + '"';
         }
-        csvContent += line + '\r\n';
+        // if (items[i][index].indexOf(',') != -1) {
+          // items[i][index] = "\"" + items[i][index] + "\"";
+          // console.log('*' + items[i][index]);
+        // }
+        if (line != '') 
+          line += ','
+        line += items[i][index];
+      }
+      csvContent += line + '\r\n';
     }
     return csvContent;
   }
 
+  // Creates a csv header based upon keys of a thesis item
   function getHeader(example) {
-    console.log( Object.keys(example).toString())
     return Object.keys(example).toString() + '\r\n';
   }
 
 }
+
+
 
 
 
