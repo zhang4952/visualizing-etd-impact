@@ -13,38 +13,43 @@
 // Input CSV Formatting and Info
 //=========================================================================================
 // This code expects the input csv to have the following column names and mapping, in the given order
-// Expected               //Default may be          //Represents
-// id                       id.only  
-// url                      dc.identifier.uri
-// author                   dc.creator
-// title                    dc.title
-// year                     dc.description
-// multiple_grad_year       multiple grad year
-// degree_level             dc.degree.level
-// degree_fullName          dc.degree.name
-// degree_type              dc.degree.name 1 
-// degree_field             dc.degree.name 2
-// degree_topic             dc.degree.topic
-// downloads                downloads
+// Expected                 Default may be              Represents
+// id                       id.only                     Id for thesis
+// url                      dc.identifier.uri           Link to thesis page in OSU Scholars Archive
+// author                   dc.creator                  Author of a given thesis
+// title                    dc.title                    Title of a given thesis
+// year                     dc.description              Year thesis was submitted
+// multiple_grad_year       multiple grad year          Whether author had multiple graduation years
+// degree_level             dc.degree.level             Degree level of author when thesis submitted (i.e Doctoral, Masters, Bachelors)
+// degree_fullName          dc.degree.name              Full degree name (e.g. Master's of Science (M.S.) in Chemistry)
+// degree_type              dc.degree.name 1            First half of full degree name (e.g. Master's of Science (M.S.), Doctor of Philosophy (Ph.D), etc.)
+// degree_field             dc.degree.name 2            Second half of full degree name, which is a field of study (e.g. Agriculture, Chemistry, Computer Science, etc.)
+// degree_topic             dc.degree.topic             Groups degree fields into ~20 categories - used to filter visualizer
+// downloads                downloads                   Number of downloads for a given thesis
+
 
 
 //=========================================================================================
-// Setup 
+// Setup and variable
 //=========================================================================================
 
+// Radius of visualization
 var radius = 340;
 
+// Color scale for first level of nodes
 var hue = d3.scale.category20();
 
 // Breadcrumb dimensions: width, height, spacing, width of tip/tail.
 var b = {w: 140, h: 30, s: 3, t: 10};
 
+// SVG that contains the chart
 var svg = d3.select("#graph").append("svg")
     .attr("width",  1400)
     .attr("height", 800)
   .append("g")
     .attr("transform", "translate("+715+","+420+")");
 
+// The paths for the node blocks
 var arc = d3.svg.arc()
     .startAngle( function(d) { return d.x; })
     .endAngle(   function(d) { return d.x + d.dx - 0.0001 / (d.depth + 0.5); })
@@ -53,38 +58,34 @@ var arc = d3.svg.arc()
 
 
 // Global Variables
+var path;                         // All the paths to of the visualization svg 
+var partition;                    // The d3 partition type
+var currentRoot;                  // The root of the graph based on sort/filter - not influenced by zoom
+var currentCenter;                // The center node of the graph currently - changes with zoom
+var parsedCSV;                    // A preserved copy of the CSV without filtering
 var pathLevel = [];               // The text in the center of the graphic providing info of current node hovered over
 
-var path;                         // All the paths to of the visualization svg 
-// var textLabels;                   // Labeds for names of nodes
-
-var partition;                    // The d3 partition type
-
-var currentRoot;                  // The root of the graph based on sort/filter - not influenced by zoom
-var currentCenter;                // The center node of the graph currently
-var parsedCSV;                    // A preserved copy of the CSV without filtering
- 
 var currentSortType = 1;          // The order that the hierarchy tree levels are sorted
 var currentFilterType = 'none';   // Whether the theses are sorted to a given degree name
 
 var freezeBreadCrumb = false;     // Freeze the breadcrumb trail when an individual theses is clicked
 
 
+
 //=========================================================================================
 // Parse CSV, Draw SVG and handle transistions
 //=========================================================================================
 d3.csv('CleanCSV.csv', function (error, data) {
-  parsedCSV = data;
-  populateFilterList(getAllDegreeTopics(parsedCSV)); // Create options in filter drop-down menu
-  root = formatPartition(parsedCSV, 1);             // Turn csv data array into properly formatted hierarchy for sunburst graph
-  currentRoot = currentCenter = root;
-  createInfoLabels(root);                               // Creates elements to display relevant info about current node
-  drawGraph();                                      // Inital draw paths for node blocks
-  initializeBreadcrumbTrail();
-  updateBreadcrumbs([]);
+  parsedCSV = data;                                   // Cache unfiltered array of the parsed data
+  populateFilterList(getAllDegreeTopics(parsedCSV));  // Create options in filter drop-down menu
+  root = formatPartition(parsedCSV, 1);               // Turn csv data array into properly formatted hierarchy for sunburst graph
+  currentRoot = currentCenter = root;                 // Initializd references to root
+  createInfoLabels(root);                             // Creates elements to display relevant info about current node
+  drawGraph();                                        // Inital draw paths for node blocks 
+  initializeBreadcrumbTrail();                        // Create breadcrumb path and put name of root in first block
+  updateBreadcrumbs([]);                              // Start displaying breadcrumbs
 
 });  
-
 //=========================================================================================
 
 
@@ -98,16 +99,16 @@ d3.csv('CleanCSV.csv', function (error, data) {
 function refreshGraph(sortList) {
   currentSortType = eval(sortList.value)
   root = formatPartition(parsedCSV);            // Turn csv data array into properly formatted hierarchy for sunburst graph
-  currentRoot = currentCenter = root;
+  currentRoot = currentCenter = root;           // Initialize references to root
   createInfoLabels(root);                       // Creates elements to display relevant info about current node
   drawGraph();                                  // Inital draw paths for node blocks
 }
 
 // Called if a filter is selected
 function filterGraph(filterList) {
-  var filter = filterList.value;
+  // var filter = filterList.value;
   var newCSV = parsedCSV;
-  currentFilterType = filter;
+  currentFilterType = filterList.value;
   root = formatPartition(newCSV); 
   currentRoot = currentCenter = root;
   createInfoLabels(root);                                   
@@ -139,6 +140,7 @@ function formatPartition(data) {
     .sort(function(a, b) { return d3.descending(a.arcSize, b.arcSize); })
     .size([2 * Math.PI, radius]);
 
+  // Define some of the parameters of each node object
   partition
     .value(function(d) { return d.size; })
     .nodes(root)
@@ -166,22 +168,13 @@ function formatPartition(data) {
 // Set of functions to change how d3.nest() creates the tree hierarchy
 // The order will change based on user selection between 3 options
 //=========================================================================================
-//Chooses which nest to run
+// Chooses which nest to run
 function nestSelector(data, index, filter) {
-  // if (!filter) {
-    switch(index) {
-      case 1: return nestLevel_Name_Year(data);
-      case 2: return nestLevel_Year_Name(data);
-      case 3: return nestYear_Level_Name(data);
-    }
-  // } 
-  // else {
-  //   switch(index) {
-  //     case 1: return nestLevel_Name_Year_Filtered(data);
-  //     case 2: return nestLevel_Year_Name_Filtered(data);
-  //     case 3: return nestYear_Level_Name_Filtered(data);
-  //   }
-  // }
+  switch(index) {
+    case 1: return nestLevel_Name_Year(data);
+    case 2: return nestLevel_Year_Name(data);
+    case 3: return nestYear_Level_Name(data);
+  }
 
   // Sort Degree_Level > Degree_Name > Year
   function nestLevel_Name_Year(data) {
@@ -211,38 +204,7 @@ function nestSelector(data, index, filter) {
       .key(function(d) { return d.title; })
       .entries(data) };
   }
-
-
-  // Sort Degree_Level > Degree_Name > Year
-  // function nestLevel_Name_Year_Filtered(data) {
-  //   return { "key": "All Theses", "values": d3.nest()
-  //     .key(function(d) { return d.degree_type; })
-  //     .key(function(d) { return d.degree_field; })
-  //     .key(function(d) { return d.year; })
-  //     .key(function(d) { return d.title; })
-  //     .rollup(function(leaves) { return leaves;})
-  //     .entries(data) };
-  // }
-  // // Sort Degree_Level > Year > Degree_Name
-  // function nestLevel_Year_Name_Filtered(data) {
-  //   return { "key": "All Theses", "values": d3.nest()
-  //     .key(function(d) { return d.degree_type; })
-  //     .key(function(d) { return d.year; })
-  //     .key(function(d) { return d.degree_field; })
-  //     .key(function(d) { return d.title; })
-  //     .entries(data) };
-  // }
-  // // Sort Year > Degree_Level > Degree_Name
-  // function nestYear_Level_Name_Filtered(data) {
-  //     return { "key": "All Theses", "values": d3.nest()
-  //     .key(function(d) { return d.year; })
-  //     .key(function(d) { return d.degree_type; })
-  //     .key(function(d) { return d.degree_field; })
-  //     .key(function(d) { return d.title; })
-  //     .entries(data) };
-  // }
 }
-
 
 //=========================================================================================
 // If a node has more than 10 children, keep first 9 as is, 
@@ -256,7 +218,7 @@ function groupByDownloads(root) {
     // Node has more than 10 chilren and is not already an 'Other' block
     if ((root.children.length > 10) && (root.name.indexOf('Other') == -1)) {
       
-      // /Creat object node to hold the excess nodes
+      // /Create 'Other' object node to hold the excess nodes
       var other = {};
       other.name = "Other " + root.name;
       
@@ -291,49 +253,52 @@ function groupByDownloads(root) {
     // Node has more than 20 children and is an 'Other' block
     // Puts the many children of an 'Other' block into more managable chunks of size 16 or less
     else if ((root.name.indexOf('Other') != -1) && (root.children.length > 20)) {
-        // groupOthers(root);
+        groupOthers(root);    //Uncomment to have nodes in an 'Other' node grouped into several groups
     }
 
     // Recursively group downloads in child nodes
     for (i in root.children)
       groupByDownloads(root.children[i]);
   }
-}
 
-// Groups nodes that are already children of an 'Other' block
-function groupOthers(root) {
-  var childCount   = root.children.length
-  var numSubBlocks = Math.ceil(childCount/16);
-  var subBlocks    = [];
-  var rootArcSize  = root.arcSize;
 
-  for (i = 0; i < numSubBlocks; i++) {
-    var temp  = {};
-    temp.name = root.name + " Group " + (i+1);
+  // Groups nodes that are already children of an 'Other' block
+  function groupOthers(root) {
+    var childCount   = root.children.length
+    var numSubBlocks = Math.ceil(childCount/16);
+    var subBlocks    = [];
+    var rootArcSize  = root.arcSize;
 
-    // Extract last 16 of root
-    temp.children = root.children.slice(0,16);
-    root.children = root.children.slice(16);
+    for (i = 0; i < numSubBlocks; i++) {
+      var temp  = {};
+      temp.name = root.name + " Group " + (i+1);
 
-    // Sum downloads and arc sizes
-    var tempDownloadCount = 0, tempArcSize = 0;
-    for (child in temp.children) {
-      tempDownloadCount += temp.children[child].downloads; 
-      tempArcSize       += temp.children[child].arcSize;
+      // Extract last 16 of root
+      temp.children = root.children.slice(0,16);
+      root.children = root.children.slice(16);
+
+      // Sum downloads and arc sizes
+      var tempDownloadCount = 0, tempArcSize = 0;
+      for (child in temp.children) {
+        tempDownloadCount += temp.children[child].downloads; 
+        tempArcSize       += temp.children[child].arcSize;
+      }
+      temp.downloads = tempDownloadCount;
+      temp.arcSize   = Math.round(rootArcSize/numSubBlocks);
+
+      // Gives children equal sized arcSize
+      for (child in temp.children)
+        temp.children[child].arcSize = Math.round(temp.arcSize/temp.children.length);
+
+      // Add group to array
+      subBlocks.push(temp);
     }
-    temp.downloads = tempDownloadCount;
-    temp.arcSize   = Math.round(rootArcSize/numSubBlocks);
-
-    // Gives children equal sized arcSize
-    for (child in temp.children)
-      temp.children[child].arcSize = Math.round(temp.arcSize/temp.children.length);
-
-    // Add group to array
-    subBlocks.push(temp);
+    // Replace root's children with and grouped version
+    root.children = subBlocks;
   }
-  // Replace root's children with and grouped version
-  root.children = subBlocks;
 }
+
+
 
 //=========================================================================================
 // Calculate download counts for each node in the tree recursively
@@ -853,13 +818,15 @@ function updateBreadcrumbs(pathArray) {
 function downloadCsv() {
   console.log("In Download CSV Function")
 
-  // var items = grabOriginals(currentCenter, []);
-
   // Creates csv text from array of thesis objects
   var csvContent = convertToCSVText(grabOriginals(currentCenter, []));
 
 
-//Replaces viz
+// download(encodeURI(csvContent), "dlText.txt", "data:download");
+  // download(encodeURI(csvContent), "export.csv", "text/csv;charset=utf-8");
+
+
+// Replaces viz
   // var encodedUri = encodeURI(csvContent);
   // var link = document.createElement("a");
   // link.setAttribute("href", encodedUri);
@@ -869,9 +836,18 @@ function downloadCsv() {
   // link.click(); 
 
 
+
+
+
+    var uri = 'data:download/csv;charset=UTF-8,' + encodeURI(csvContent);
+    // var uri = 'data:text/plain;charset=UTF-8,' + encodeURI(csvContent);
+
+    window.open(uri);
+
+
 //Create download of unknown
   // var a         = document.createElement('a');
-  // a.href        = encodeURI(csvContent);
+  // a.href        = 'data:text/plain;charset=UTF-8,' + encodeURI(csvContent);
   // a.target      = '_blank';
   // a.download    = 'export.csv';
 
@@ -881,49 +857,52 @@ function downloadCsv() {
   // a.click();
 
 
-  //Generate a file name
 
 
 
-// var uri = 'data:text/csv;charset=UTF-8,' + escape(CSV);
 
-// var link = document.createElement("a");
+// Works on Chrome and Firefox, Safari as Unknown file, not on Explorer or Edge
 
-// link.href = uri;
-
-// link.style = "visibility:hidden";
-
-// link.download = "export.csv";
-
-// //this part will append the anchor tag and remove it after automatic click
-
-// document.body.appendChild(link);
-
-// link.click();
-
-// document.body.removeChild(link);
-
-//Create download 2
-  data = encodeURI(csvContent);
-
-        link = document.createElement('a');
-        link.setAttribute('href', data);
-        link.setAttribute('download', 'export.csv');
-        link.click();
+  // var a = document.body.appendChild(
+  //       document.createElement("a")
+  //   );
+  //   a.download = "export.csv";
+  //   a.href = "data:download/csv;charset=utf-8," + encodeURI(csvContent);
+  //   a.target = "_blank"
+  //   a.innerHTML = "download csv";
+  //   a.click();
+  //   document.body.removeChild(a);
 
 
-//Open text in new tab
-  // var encodedUri = encodeURI(csvContent);
-  // var newWindow = window.open('')
-  // var link = newWindow.document.createElement('a');
-  // link.setAttribute("href", encodedUri);
-  // link.setAttribute("download", "data.csv");
-  // document.body.appendChild(link); // Required for FF
 
-  // link.click(); 
 
-  // var newWindow = window.open('')
-  // newWindow.document.body.innerHTML = csvText;
+
+
+  // var str = csvContent;
+
+  //       var blob = new Blob([str], {type: "text/plain;charset=utf-8"});
+  //       var filename = prompt("Please enter the filename");
+  //       if(filename!=null && filename!="")
+  //           saveAs(blob, [filename+'.csv']);
+  //       else
+  //           alert("please enter a filename!");  
+
+
+
+
+
+
+// var str = csvContent;
+
+// var csvData = new Blob([str], {type: 'attachment/csv;charset=utf-8;'});
+// var csvURL = window.URL.createObjectURL(csvData);
+// var tempLink = document.createElement('a');
+// tempLink.href = csvURL;
+// tempLink.setAttribute('download', 'ActiveEvent_data.csv');
+// tempLink.click();
+
+
+
 
 
   // Get original format of thesis from leaf nodes
@@ -940,8 +919,9 @@ function downloadCsv() {
   function convertToCSVText(items) {
     if (items.length < 1) return '';
           //download or application
-    var csvContent = "data:download/csv;charset=utf-8,";
-    csvContent += getHeader(items[0]);
+    // var csvContent = "data:download/csv;charset=utf-8,";
+    // csvContent += getHeader(items[0]);
+    csvContent = getHeader(items[0]);
 
     for (i in items) {
       var line = '';
@@ -971,6 +951,19 @@ function downloadCsv() {
 }
 
 
+
+//Open text in new tab
+  // var encodedUri = encodeURI(csvContent);
+  // var newWindow = window.open('')
+  // var link = newWindow.document.createElement('a');
+  // link.setAttribute("href", encodedUri);
+  // link.setAttribute("download", "data.csv");
+  // document.body.appendChild(link); // Required for FF
+
+  // link.click(); 
+
+  // var newWindow = window.open('')
+  // newWindow.document.body.innerHTML = csvText;
 
 
 
