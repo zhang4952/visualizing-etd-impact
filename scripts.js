@@ -13,38 +13,58 @@
 // Input CSV Formatting and Info
 //=========================================================================================
 // This code expects the input csv to have the following column names and mapping, in the given order
-// Expected               //Default may be          //Represents
-// id                       id.only  
-// url                      dc.identifier.uri
-// author                   dc.creator
-// title                    dc.title
-// year                     dc.description
-// multiple_grad_year       multiple grad year
-// degree_level             dc.degree.level
-// degree_fullName          dc.degree.name
-// degree_type              dc.degree.name 1 
-// degree_field             dc.degree.name 2
-// degree_topic             dc.degree.topic
-// downloads                downloads
+// Expected                 Default may be              Represents
+// id                       id.only                     Id for thesis
+// url                      dc.identifier.uri           Link to thesis page in OSU Scholars Archive
+// author                   dc.creator                  Author of a given thesis
+// title                    dc.title                    Title of a given thesis
+// year                     dc.description              Year thesis was submitted
+// multiple_grad_year       multiple grad year          Whether author had multiple graduation years
+// degree_level             dc.degree.level             Degree level of author when thesis submitted (i.e Doctoral, Masters, Bachelors)
+// degree_fullName          dc.degree.name              Full degree name (e.g. Master's of Science (M.S.) in Chemistry)
+// degree_type              dc.degree.name 1            First half of full degree name (e.g. Master's of Science (M.S.), Doctor of Philosophy (Ph.D), etc.)
+// degree_field             dc.degree.name 2            Second half of full degree name, which is a field of study (e.g. Agriculture, Chemistry, Computer Science, etc.)
+// degree_topic             dc.degree.topic             Groups degree fields into ~20 categories - used to filter visualizer
+// downloads                downloads                   Number of downloads for a given thesis
+
 
 
 //=========================================================================================
-// Setup 
+// Setup and variable
 //=========================================================================================
 
+var globalResizeTimer = null;
+
+
+
+
+// Radius of visualization
 var radius = 340;
 
+// Color scale for first level of nodes
 var hue = d3.scale.category20();
 
 // Breadcrumb dimensions: width, height, spacing, width of tip/tail.
 var b = {w: 140, h: 30, s: 3, t: 10};
 
-var svg = d3.select("#graph").append("svg")
-    .attr("width",  1400)
-    .attr("height", 800)
-  .append("g")
-    .attr("transform", "translate("+715+","+420+")");
+// style="display:block" style="margin:auto"
+// SVG that contains the chart
+var width = window.innerWidth
+|| document.documentElement.clientWidth
+|| document.body.clientWidth;
 
+var height = window.innerHeight
+|| document.documentElement.clientHeight
+|| document.body.clientHeight;
+
+var svg = d3.select("#graph").append("svg")
+    .attr("id", "visualization")
+    .attr("width",  width)
+    .attr("height", height)
+  .append("g")
+    .attr("transform", "translate("+width/2+","+height/2+")");
+
+// The paths for the node blocks
 var arc = d3.svg.arc()
     .startAngle( function(d) { return d.x; })
     .endAngle(   function(d) { return d.x + d.dx - 0.0001 / (d.depth + 0.5); })
@@ -53,40 +73,95 @@ var arc = d3.svg.arc()
 
 
 // Global Variables
+var path;                         // All the paths to of the visualization svg 
+var partition;                    // The d3 partition type
+var currentRoot;                  // The root of the graph based on sort/filter - not influenced by zoom
+var currentCenter;                // The center node of the graph currently - changes with zoom
+var parsedCSV;                    // A preserved copy of the CSV without filtering
 var pathLevel = [];               // The text in the center of the graphic providing info of current node hovered over
 
-var path;                         // All the paths to of the visualization svg 
-// var textLabels;                   // Labeds for names of nodes
-
-var partition;                    // The d3 partition type
-
-var currentRoot;                  // The root of the graph based on sort/filter - not influenced by zoom
-var currentCenter;                // The center node of the graph currently
-var parsedCSV;                    // A preserved copy of the CSV without filtering
- 
 var currentSortType = 1;          // The order that the hierarchy tree levels are sorted
 var currentFilterType = 'none';   // Whether the theses are sorted to a given degree name
 
 var freezeBreadCrumb = false;     // Freeze the breadcrumb trail when an individual theses is clicked
 
 
+
 //=========================================================================================
 // Parse CSV, Draw SVG and handle transistions
 //=========================================================================================
 d3.csv('CleanCSV.csv', function (error, data) {
-  parsedCSV = data;
-  populateFilterList(getAllDegreeTopics(parsedCSV)); // Create options in filter drop-down menu
-  root = formatPartition(parsedCSV, 1);             // Turn csv data array into properly formatted hierarchy for sunburst graph
-  currentRoot = currentCenter = root;
-  createInfoLabels(root);                               // Creates elements to display relevant info about current node
-  drawGraph();                                      // Inital draw paths for node blocks
-  initializeBreadcrumbTrail();
-  updateBreadcrumbs([]);
+  parsedCSV = data;                                   // Cache unfiltered array of the parsed data
+  populateFilterList(getAllDegreeTopics(parsedCSV));  // Create options in filter drop-down menu
+  root = formatPartition(parsedCSV, 1);               // Turn csv data array into properly formatted hierarchy for sunburst graph
+  currentRoot = currentCenter = root;                 // Initializd references to root
+  createInfoLabels(root);                             // Creates elements to display relevant info about current node
+  drawGraph();                                        // Inital draw paths for node blocks 
+  initializeBreadcrumbTrail();                        // Create breadcrumb path and put name of root in first block
+  updateBreadcrumbs([]);                              // Start displaying breadcrumbs
 
 });  
-
 //=========================================================================================
+  // window.onresize = resize;
 
+
+
+$(window).resize(function() {
+    if(globalResizeTimer != null) window.clearTimeout(globalResizeTimer);
+    globalResizeTimer = window.setTimeout(function() {
+        resizeGraph();
+    }, 200);
+});
+  function resizeGraph() {
+
+    width = window.innerWidth
+      || document.documentElement.clientWidth
+      || document.body.clientWidth;
+
+    height = window.innerHeight
+      || document.documentElement.clientHeight
+      || document.body.clientHeight;
+
+    var div = document.getElementById('graph');
+    while(div.firstChild){
+      div.removeChild(div.firstChild);
+    }
+
+    svg = d3.select("#graph").append("svg")
+        .attr("width",  width)
+        .attr("height", height)
+      .append("g")
+        .attr("transform", "translate("+width/2+","+height/2+")");
+
+    // The paths for the node blocks
+    arc = d3.svg.arc()
+        .startAngle( function(d) { return d.x; })
+        .endAngle(   function(d) { return d.x + d.dx - 0.0001 / (d.depth + 0.5); })
+        .innerRadius(function(d) { return radius / 3 * d.depth; })
+        .outerRadius(function(d) { return radius / 3 * (d.depth + 1) - 1; });
+
+
+    // Global Variables
+     path;                         // All the paths to of the visualization svg 
+     partition;                    // The d3 partition type
+     currentRoot;                  // The root of the graph based on sort/filter - not influenced by zoom
+     currentCenter;                // The center node of the graph currently - changes with zoom
+     parsedCSV;                    // A preserved copy of the CSV without filtering
+     pathLevel = [];               // The text in the center of the graphic providing info of current node hovered over
+
+     currentSortType = 1;          // The order that the hierarchy tree levels are sorted
+     currentFilterType = 'none';   // Whether the theses are sorted to a given degree name
+
+     freezeBreadCrumb = false;     // Freeze the breadcrumb trail when an individual theses is clicked
+
+
+root = formatPartition(parsedCSV, 1);               // Turn csv data array into properly formatted hierarchy for sunburst graph
+  currentRoot = currentCenter = root;                 // Initializd references to root
+  createInfoLabels(root); 
+    drawGraph();
+      updateBreadcrumbs([]);                              // Start displaying breadcrumbs
+
+  }
 
 
 
@@ -98,16 +173,16 @@ d3.csv('CleanCSV.csv', function (error, data) {
 function refreshGraph(sortList) {
   currentSortType = eval(sortList.value)
   root = formatPartition(parsedCSV);            // Turn csv data array into properly formatted hierarchy for sunburst graph
-  currentRoot = currentCenter = root;
+  currentRoot = currentCenter = root;           // Initialize references to root
   createInfoLabels(root);                       // Creates elements to display relevant info about current node
   drawGraph();                                  // Inital draw paths for node blocks
 }
 
 // Called if a filter is selected
 function filterGraph(filterList) {
-  var filter = filterList.value;
+  // var filter = filterList.value;
   var newCSV = parsedCSV;
-  currentFilterType = filter;
+  currentFilterType = filterList.value;
   root = formatPartition(newCSV); 
   currentRoot = currentCenter = root;
   createInfoLabels(root);                                   
@@ -132,13 +207,14 @@ function formatPartition(data) {
     root.name = 'All ' + currentFilterType;
   sumChildrenDownLoads(root);         // Recursively calculate the sum of downloads for each node
   groupByDownloads(root);             // Group children if there are too many for a clean graph
-  countThesis(root);                  // Recursively count the number of theses for each node
+  countTheses(root);                  // Recursively count the number of theses for each node
 
   // Formating info for partition
   partition = d3.layout.partition()
     .sort(function(a, b) { return d3.descending(a.arcSize, b.arcSize); })
     .size([2 * Math.PI, radius]);
 
+  // Define some of the parameters of each node object
   partition
     .value(function(d) { return d.size; })
     .nodes(root)
@@ -166,22 +242,12 @@ function formatPartition(data) {
 // Set of functions to change how d3.nest() creates the tree hierarchy
 // The order will change based on user selection between 3 options
 //=========================================================================================
-//Chooses which nest to run
 function nestSelector(data, index, filter) {
-  // if (!filter) {
-    switch(index) {
-      case 1: return nestLevel_Name_Year(data);
-      case 2: return nestLevel_Year_Name(data);
-      case 3: return nestYear_Level_Name(data);
-    }
-  // } 
-  // else {
-  //   switch(index) {
-  //     case 1: return nestLevel_Name_Year_Filtered(data);
-  //     case 2: return nestLevel_Year_Name_Filtered(data);
-  //     case 3: return nestYear_Level_Name_Filtered(data);
-  //   }
-  // }
+  switch(index) {
+    case 1: return nestLevel_Name_Year(data);
+    case 2: return nestLevel_Year_Name(data);
+    case 3: return nestYear_Level_Name(data);
+  }
 
   // Sort Degree_Level > Degree_Name > Year
   function nestLevel_Name_Year(data) {
@@ -211,38 +277,84 @@ function nestSelector(data, index, filter) {
       .key(function(d) { return d.title; })
       .entries(data) };
   }
-
-
-  // Sort Degree_Level > Degree_Name > Year
-  // function nestLevel_Name_Year_Filtered(data) {
-  //   return { "key": "All Theses", "values": d3.nest()
-  //     .key(function(d) { return d.degree_type; })
-  //     .key(function(d) { return d.degree_field; })
-  //     .key(function(d) { return d.year; })
-  //     .key(function(d) { return d.title; })
-  //     .rollup(function(leaves) { return leaves;})
-  //     .entries(data) };
-  // }
-  // // Sort Degree_Level > Year > Degree_Name
-  // function nestLevel_Year_Name_Filtered(data) {
-  //   return { "key": "All Theses", "values": d3.nest()
-  //     .key(function(d) { return d.degree_type; })
-  //     .key(function(d) { return d.year; })
-  //     .key(function(d) { return d.degree_field; })
-  //     .key(function(d) { return d.title; })
-  //     .entries(data) };
-  // }
-  // // Sort Year > Degree_Level > Degree_Name
-  // function nestYear_Level_Name_Filtered(data) {
-  //     return { "key": "All Theses", "values": d3.nest()
-  //     .key(function(d) { return d.year; })
-  //     .key(function(d) { return d.degree_type; })
-  //     .key(function(d) { return d.degree_field; })
-  //     .key(function(d) { return d.title; })
-  //     .entries(data) };
-  // }
 }
 
+
+//=========================================================================================
+// Rename the keys created by d3.nest() into more descriptive names
+//=========================================================================================
+function renameKeys(d) {
+  d.name = d.key.trim(); delete d.key;
+  if (d.values[0].hasOwnProperty("author")) { //Leaf node, keep version of the article in original format
+    d.size = eval(d.values[0]["downloads"]);
+    d.original = d.values[0];
+  }
+  else {
+    d.children = d.values;
+    for (i in d.children) 
+      renameKeys(d.children[i]);
+  }
+  delete d.values;
+}
+
+//=========================================================================================
+// Creates the key for nodes by concatenating path into string
+//=========================================================================================
+function key(d) {
+  var k = [], p = d;
+  while (p.depth) k.push(p.name), p = p.parent;
+  return k.reverse().join(".");
+}
+
+//=========================================================================================
+// Calculate color for nodes based on parent nodes when relevant
+//=========================================================================================
+function fill(d) {
+  if (d.trueDepth <= 1) { 
+    var fill_info = d3.hcl(hue(d.key));
+    fill_info.c  *= 1.5;
+    fill_info.l  *= .75;
+  } 
+  else { 
+    var colorAdjust = d3.scale.linear().domain([0,d.parent.children.length]).range([-20,25]);
+    var fill_info   = d3.hcl(d.parent.fill);
+    fill_info.l    *= 1.1;
+    fill_info.h    += colorAdjust(d.parent.children.indexOf(d));
+  } 
+  return fill_info;
+}
+
+//=========================================================================================
+// Calculate download counts for each node in the tree recursively
+//=========================================================================================
+function sumChildrenDownLoads(node) {
+  if (node.hasOwnProperty("children")) {
+    var sum = 0;
+    for (i in node.children) 
+      sum += sumChildrenDownLoads(node.children[i]);  
+    node.downloads = node.arcSize = sum;
+    return sum;
+  } 
+  else {
+    node.downloads = node.size;
+    node.arcSize = node.size;
+    return node.downloads;
+  }
+}
+
+//=========================================================================================
+// Calculate theses counts for each node in the tree recursively
+//=========================================================================================
+function countTheses(node) { 
+  if (node.hasOwnProperty("children")) {
+    var sum = 0;
+    for (i in node.children) 
+      sum += countTheses(node.children[i]);  
+    node.thesesCount = sum;
+    return sum;
+  } 
+  else return 1;
+}
 
 //=========================================================================================
 // If a node has more than 10 children, keep first 9 as is, 
@@ -256,7 +368,7 @@ function groupByDownloads(root) {
     // Node has more than 10 chilren and is not already an 'Other' block
     if ((root.children.length > 10) && (root.name.indexOf('Other') == -1)) {
       
-      // /Creat object node to hold the excess nodes
+      // /Create 'Other' object node to hold the excess nodes
       var other = {};
       other.name = "Other " + root.name;
       
@@ -291,80 +403,49 @@ function groupByDownloads(root) {
     // Node has more than 20 children and is an 'Other' block
     // Puts the many children of an 'Other' block into more managable chunks of size 16 or less
     else if ((root.name.indexOf('Other') != -1) && (root.children.length > 20)) {
-        // groupOthers(root);
+        groupOthers(root);    //Uncomment to have nodes in an 'Other' node grouped into several groups
     }
 
     // Recursively group downloads in child nodes
     for (i in root.children)
       groupByDownloads(root.children[i]);
   }
-}
 
-// Groups nodes that are already children of an 'Other' block
-function groupOthers(root) {
-  var childCount   = root.children.length
-  var numSubBlocks = Math.ceil(childCount/16);
-  var subBlocks    = [];
-  var rootArcSize  = root.arcSize;
 
-  for (i = 0; i < numSubBlocks; i++) {
-    var temp  = {};
-    temp.name = root.name + " Group " + (i+1);
+  // Groups nodes that are already children of an 'Other' block
+  function groupOthers(root) {
+    var childCount   = root.children.length
+    var numSubBlocks = Math.ceil(childCount/16);
+    var subBlocks    = [];
+    var rootArcSize  = root.arcSize;
 
-    // Extract last 16 of root
-    temp.children = root.children.slice(0,16);
-    root.children = root.children.slice(16);
+    for (i = 0; i < numSubBlocks; i++) {
+      var temp  = {};
+      temp.name = root.name + " Group " + (i+1);
 
-    // Sum downloads and arc sizes
-    var tempDownloadCount = 0, tempArcSize = 0;
-    for (child in temp.children) {
-      tempDownloadCount += temp.children[child].downloads; 
-      tempArcSize       += temp.children[child].arcSize;
+      // Extract last 16 of root
+      temp.children = root.children.slice(0,16);
+      root.children = root.children.slice(16);
+
+      // Sum downloads and arc sizes
+      var tempDownloadCount = 0, tempArcSize = 0;
+      for (child in temp.children) {
+        tempDownloadCount += temp.children[child].downloads; 
+        tempArcSize       += temp.children[child].arcSize;
+      }
+      temp.downloads = tempDownloadCount;
+      temp.arcSize   = Math.round(rootArcSize/numSubBlocks);
+
+      // Gives children equal sized arcSize
+      for (child in temp.children)
+        temp.children[child].arcSize = Math.round(temp.arcSize/temp.children.length);
+
+      // Add group to array
+      subBlocks.push(temp);
     }
-    temp.downloads = tempDownloadCount;
-    temp.arcSize   = Math.round(rootArcSize/numSubBlocks);
-
-    // Gives children equal sized arcSize
-    for (child in temp.children)
-      temp.children[child].arcSize = Math.round(temp.arcSize/temp.children.length);
-
-    // Add group to array
-    subBlocks.push(temp);
+    // Replace root's children with and grouped version
+    root.children = subBlocks;
   }
-  // Replace root's children with and grouped version
-  root.children = subBlocks;
-}
-
-//=========================================================================================
-// Calculate download counts for each node in the tree recursively
-//=========================================================================================
-function sumChildrenDownLoads(node) {
-  if (node.hasOwnProperty("children")) {
-    var sum = 0;
-    for (i in node.children) 
-      sum += sumChildrenDownLoads(node.children[i]);  
-    node.downloads = node.arcSize = sum;
-    return sum;
-  } 
-  else {
-    node.downloads = node.size;
-    node.arcSize = node.size;
-    return node.downloads;
-  }
-}
-
-//=========================================================================================
-// Calculate theses counts for each node in the tree recursively
-//=========================================================================================
-function countThesis(node) { 
-  if (node.hasOwnProperty("children")) {
-    var sum = 0;
-    for (i in node.children) 
-      sum += countThesis(node.children[i]);  
-    node.thesesCount = sum;
-    return sum;
-  } 
-  else return 1;
 }
 
 //=========================================================================================
@@ -393,6 +474,7 @@ function getAllDegreeTopics(data) {
 
   return uniqueListItems(list).sort();
 
+
   // Remove Duplicate Degree Names
   function uniqueListItems(array) {
     var seen = {};
@@ -405,50 +487,8 @@ function getAllDegreeTopics(data) {
 // Cleans the text and makes it more uniform                  
 function cleanText(string) {
   return string.trim();
-
-  if (string.length <= 10) return string;
-  if (string.indexOf(')') != -1)
-    return string
-        .replace('&', 'and', 'g')
-        .replace(/(\r\n|\n|\r|,\s|\t])/gm, ' ')
-        .slice(string.indexOf(')')+4)
-        .replace(/[^a-zA-z ]/gi,'')
-        .trim();
-  else 
-    return string
-        .replace('&', 'and', 'g')
-        .replace(/(\r\n|\n|\r|,\s|\t])/gm, ' ')
-        .replace(/[^a-zA-z ]/gi,'')
-        .trim();
 }
 
-
-//=========================================================================================
-// Rename the keys created by d3.nest() into more descriptive names
-//=========================================================================================
-function renameKeys(d) {
-  // console.log(d);
-  d.name = d.key.trim(); delete d.key;
-  if (d.values[0].hasOwnProperty("author")) { //Leaf node, keep version of the article in original format
-    d.size = eval(d.values[0]["downloads"]);
-    d.original = d.values[0];
-  }
-  else {
-    d.children = d.values;
-    for (i in d.children) 
-      renameKeys(d.children[i]);
-  }
-  delete d.values;
-}
-
-//=========================================================================================
-// Creates the key for nodes by concatenating path into string
-//=========================================================================================
-function key(d) {
-  var k = [], p = d;
-  while (p.depth) k.push(p.name), p = p.parent;
-  return k.reverse().join(".");
-}
 
 //=========================================================================================
 // Given a node in a partition layout, return an array of all of its ancestor
@@ -464,23 +504,7 @@ function getAncestors(n) {
   return path;
 }
 
-//=========================================================================================
-// Calculate color for nodes based on parent nodes when relevant
-//=========================================================================================
-function fill(d) {
-  if (d.trueDepth <= 1) { 
-    var fill_info = d3.hcl(hue(d.key));
-    fill_info.c  *= 1.5;
-    fill_info.l  *= .75;
-  } 
-  else { 
-    var colorAdjust = d3.scale.linear().domain([0,d.parent.children.length]).range([-20,25]);
-    var fill_info   = d3.hcl(d.parent.fill);
-    fill_info.l    *= 1.1;
-    fill_info.h    += colorAdjust(d.parent.children.indexOf(d));
-  } 
-  return fill_info;
-}
+
 
 //=========================================================================================
 // Interpolate the arcs in data space
@@ -525,7 +549,7 @@ function zoomOut(p) {
 function zoom(root, p) {
   if (document.documentElement.__transition__) return;
   
-  currentCenter = root;    
+  currentCenter = root;    //Update reference to node in the cener
 
   // Rescale outside angles to match the new layout.
   var enterArc,
@@ -575,7 +599,6 @@ function zoom(root, p) {
         .attrTween("d", function(d) { return arcTween.call(this, updateArc(d)); });
   });
 
-
   // Remove old labels
   d3.selectAll('#nodeLabel').remove(); 
 
@@ -593,7 +616,7 @@ function zoom(root, p) {
     .attr('fill', 'white')
     .attr('fill-opacity', 0)
     .transition().delay(600)
-    .attr('fill-opacity', function(d) { return (d.dx*45) > 5 ? 1 : 0;}).duration(500)
+    .attr('fill-opacity', function(d) { return (d.dx*45) > 4 ? 1 : 0;}).duration(500)
     .attr('text-anchor', function(d){ 
       if (computeTextRotation(d)+90 < 180) return 'start';
       else return 'end'; })
@@ -621,9 +644,7 @@ function nodeMouseOver(n) {
 
   // Provide info about current node
   var i = 4, level = 'n';
-  for (; i > n.trueDepth; i--)
-    pathLevel[i-1].text("");
-  
+  for (; i > n.trueDepth; i--) pathLevel[i-1].text("");
   for (; i > 0; i--) {
     pathLevel[i-1].text(eval(level+".name").substring(0,20));
     level += '.parent';
@@ -635,7 +656,7 @@ function nodeMouseOver(n) {
     pathLevel[6].text(n.thesesCount +' Theses');
   else pathLevel[6].text('')
 
-  // Draw breadcrumb path info to current node
+  // Update breadcrumb path info to current node if an article was not clicked
   if (!freezeBreadCrumb)
     updateBreadcrumbs(ancestorList);    
 }
@@ -647,6 +668,7 @@ function nodeMouseOut(n) {
   // Restore opacity
   d3.selectAll("path").style("opacity", 1);
 
+  // Get ancestors of current node - i.e root to current
   ancestorList = ancestorList.splice(0, ancestorList.length - (n.depth));
 
   for (i = 0; i < 5; i++) pathLevel[i].text('');
@@ -657,9 +679,11 @@ function nodeMouseOut(n) {
   if ((n.trueDepth == n.depth) && (n.trueDepth<= 2))
     pathLevel[0].text(currentRoot.name);
 
+  // Give download and theses counts
   pathLevel[5].text(eval(currentCenter.downloads)+' Downloads');
   pathLevel[6].text(eval(currentCenter.thesesCount)+' Theses');
 
+  // Update breadcrumb path info to current node if an article was not clicked
   if (!freezeBreadCrumb)
     updateBreadcrumbs(ancestorList);
 }
@@ -696,7 +720,7 @@ function createInfoLabels(root) {
 // Inital draw paths for node blocks or after sort / filter change
 //=========================================================================================
 function drawGraph() {
-  // Get rid of previous graph if it exists
+  // Remove previous graph if it exists
   path = svg.selectAll('path').remove();          
   svg.selectAll('path').style('fill-opacity', .1);
   path = svg.selectAll('path')
@@ -712,7 +736,7 @@ function drawGraph() {
   // Remove any previous labels
   svg.selectAll("#nodeLabel").remove();
 
-  // Draw need labels
+  // Draw new labels
   svg.selectAll("#nodeLabel")
     .data(partition.nodes(root).slice(1)).enter().append('text')
       .attr('id', 'nodeLabel')
@@ -726,7 +750,7 @@ function drawGraph() {
       .attr('fill', 'white')
       .attr('fill-opacity', 0)
       .transition()
-        .attr('fill-opacity', function(d) { return (d.dx*45) > 5 ? 1 : 0;}).duration(500)
+        .attr('fill-opacity', function(d) { return (d.dx*45) > 4 ? 1 : 0;}).duration(500)
       .attr('text-anchor', function(d){ 
         if (computeTextRotation(d)+90 < 180) return 'start';
         else return 'end'; })
@@ -735,6 +759,7 @@ function drawGraph() {
       .text(function(d) { return cleanText(d.name).substring(0,17); });
 }
 
+// Computes location of text on circle and prevents upsidedown labels
 function computeTextRotation(d) {
   var outsideAngle = d3.scale.linear().domain([0, 2 * Math.PI]);
   var temp = (outsideAngle(d.x)+outsideAngle(d.dx)/2)*360-90;
@@ -752,7 +777,7 @@ function computeTextRotation(d) {
 
 // Adds svg for thesis link
 function initializeBreadcrumbTrail() {
- // Add the svg area.
+  // Add the svg area for the breadcrumbs
   d3.select('#trail').append('svg:text')
     .attr('id', 'thesisLink')
     .style('fill', '#000');
@@ -812,20 +837,16 @@ function updateBreadcrumbs(pathArray) {
       .attr('dy', '0.35em')
       .attr('font-size', 14)
       .attr('text-anchor', 'start')
-      .attr('href', function() {
-        if (pathArray.length > 0) {
+      .attr('href', function() { if (pathArray.length > 0) {
           var node = pathArray[pathArray.length-1];
-          if (node.hasOwnProperty('original')) return node.original.url;
-        } 
-      })
+          if (node.hasOwnProperty('original')) return node.original.url; }})
       .style('fill', 'blue')
       .style('text-decoration', 'underline')
-      .text(function(){ 
-        if (pathArray.length > 0) {
+      .text(function(){ if (pathArray.length > 0) {
           var node = pathArray[pathArray.length-1];
           if (node.hasOwnProperty('original')) // Is an individual article
             return (node.original.title.length > 45) ? 
-                node.original.title.substring(0,42) + '...' : node.original.title;
+              node.original.title.substring(0,42) + '...' : node.original.title;
         } 
         else return '';
       });
@@ -851,15 +872,16 @@ function updateBreadcrumbs(pathArray) {
 // Allow user to download csv from current root
 //=========================================================================================
 function downloadCsv() {
-  console.log("In Download CSV Function")
-
-  // var items = grabOriginals(currentCenter, []);
+  if (!promptContinue()) return;
 
   // Creates csv text from array of thesis objects
   var csvContent = convertToCSVText(grabOriginals(currentCenter, []));
 
+// download(encodeURI(csvContent), "dlText.txt", "data:download");
+// download(encodeURI(csvContent), "export.csv", "text/csv;charset=utf-8");
 
-//Replaces viz
+
+// Replaces viz
   // var encodedUri = encodeURI(csvContent);
   // var link = document.createElement("a");
   // link.setAttribute("href", encodedUri);
@@ -869,67 +891,40 @@ function downloadCsv() {
   // link.click(); 
 
 
-//Create download of unknown
-  // var a         = document.createElement('a');
-  // a.href        = encodeURI(csvContent);
-  // a.target      = '_blank';
-  // a.download    = 'export.csv';
-
-  // console.log(a);
-
-  // document.body.appendChild(a);
-  // a.click();
+// var uri = 'data:text/plain;charset=UTF-8,' + encodeURI(csvContent);
+// var uri = 'data:download/csv;charset=UTF-8,' + encodeURI(csvContent);
+// window.open(uri);
 
 
-  //Generate a file name
+// Works on Chrome and Firefox, Safari as Unknown file, not on Explorer or Edge
+  var a = document.body.appendChild(document.createElement("a"));
+    a.download  = "export.csv";
+    a.href      = "data:download/csv;charset=utf-8," + encodeURI(csvContent);
+    a.target    = "_blank"
+    a.innerHTML = "download csv";
+    a.click();
+    document.body.removeChild(a);
 
 
+  function promptContinue() {
+    var text = "You are about to download a csv of '";
 
-// var uri = 'data:text/csv;charset=UTF-8,' + escape(CSV);
+    ancestorList = getAncestors(currentCenter);
 
-// var link = document.createElement("a");
+    if (currentFilterType == 'none') text += 'All Theses';
+    else text += currentFilterType;
 
-// link.href = uri;
+    for (i in ancestorList) text += ", " + ancestorList[i].name;
+    text += "' Continue?"
 
-// link.style = "visibility:hidden";
-
-// link.download = "export.csv";
-
-// //this part will append the anchor tag and remove it after automatic click
-
-// document.body.appendChild(link);
-
-// link.click();
-
-// document.body.removeChild(link);
-
-//Create download 2
-  data = encodeURI(csvContent);
-
-        link = document.createElement('a');
-        link.setAttribute('href', data);
-        link.setAttribute('download', 'export.csv');
-        link.click();
+    return confirm(text);
+  }
 
 
-//Open text in new tab
-  // var encodedUri = encodeURI(csvContent);
-  // var newWindow = window.open('')
-  // var link = newWindow.document.createElement('a');
-  // link.setAttribute("href", encodedUri);
-  // link.setAttribute("download", "data.csv");
-  // document.body.appendChild(link); // Required for FF
-
-  // link.click(); 
-
-  // var newWindow = window.open('')
-  // newWindow.document.body.innerHTML = csvText;
-
-
-  // Get original format of thesis from leaf nodes
+  // Get original format of theses from leaf nodes
   function grabOriginals(node, items) {
     if (node.hasOwnProperty("original")) 
-        items.push(node.original);
+      items.push(node.original);
     else 
       for (i in node._children) 
         grabOriginals(node._children[i], items);
@@ -939,9 +934,7 @@ function downloadCsv() {
   // Creates csv text from array of thesis objects
   function convertToCSVText(items) {
     if (items.length < 1) return '';
-          //download or application
-    var csvContent = "data:download/csv;charset=utf-8,";
-    csvContent += getHeader(items[0]);
+    csvContent = getHeader(items[0]);
 
     for (i in items) {
       var line = '';
@@ -950,12 +943,7 @@ function downloadCsv() {
         if (items[i][index].indexOf && (items[i][index].indexOf(',') !== -1 || items[i][index].indexOf('"') !== -1)) {
           items[i][index] = '"' + items[i][index].replace(/"/g, '""') + '"';
         }
-        // if (items[i][index].indexOf(',') != -1) {
-          // items[i][index] = "\"" + items[i][index] + "\"";
-          // console.log('*' + items[i][index]);
-        // }
-        if (line != '') 
-          line += ','
+        if (line != '') line += ','
         line += items[i][index];
       }
       csvContent += line + '\r\n';
@@ -969,8 +957,5 @@ function downloadCsv() {
   }
 
 }
-
-
-
 
 
