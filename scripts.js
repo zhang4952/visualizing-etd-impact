@@ -104,16 +104,6 @@ d3.csv('CleanCSV.csv', function (error, data) {
 
 });  
 //=========================================================================================
- 
-
-
-// function zoom2(root) {
-
-// }
-
-
-
-
 
 
 window.onresize = resizeDelay;
@@ -307,7 +297,7 @@ function key(d) {
 //=========================================================================================
 function fill(d) {
   if (d.trueDepth <= 1) { 
-    var fill_info = d3.hcl(hue(d.key));
+    var fill_info = d3.hcl(hue(d.name));
     fill_info.c  *= 1.5;
     fill_info.l  *= .75;
   } 
