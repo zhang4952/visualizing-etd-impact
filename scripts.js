@@ -35,41 +35,43 @@
 
 var globalResizeTimer = null;
 
-
+width =  window.innerWidth  || document.documentElement.clientWidth  || document.body.clientWidth;
+height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
 
 
 // Radius of visualization
-var radius = 340;
+radius = Math.min(width, height)*(.35);
+// var radius = 340;
 
 // Color scale for first level of nodes
 var hue = d3.scale.category20();
 
 // Breadcrumb dimensions: width, height, spacing, width of tip/tail.
-var b = {w: 140, h: 30, s: 3, t: 10};
+var b = {w: 125, h: 30, s: 3, t: 10};
 
 // style="display:block" style="margin:auto"
 // SVG that contains the chart
-var width = window.innerWidth
-|| document.documentElement.clientWidth
-|| document.body.clientWidth;
 
-var height = window.innerHeight
-|| document.documentElement.clientHeight
-|| document.body.clientHeight;
-
-var svg = d3.select("#graph").append("svg")
-    .attr("id", "visualization")
-    .attr("width",  width)
-    .attr("height", height)
-  .append("g")
-    .attr("transform", "translate("+width/2+","+height/2+")");
+var svg = d3.select('#graph').append('svg')
+    .attr('id', 'visualization')
+    .attr('width',  width)
+    .attr('height', height)
+  .append('g')
+    .attr('transform', 'translate('+(width/2)+','+(height/2 - 75)+')');
 
 // The paths for the node blocks
 var arc = d3.svg.arc()
     .startAngle( function(d) { return d.x; })
-    .endAngle(   function(d) { return d.x + d.dx - 0.0001 / (d.depth + 0.5); })
+    .endAngle(function(d) { return d.x + d.dx ; })
     .innerRadius(function(d) { return radius / 3 * d.depth; })
-    .outerRadius(function(d) { return radius / 3 * (d.depth + 1) - 1; });
+    .outerRadius(function(d) { return radius / 3 * (d.depth + 1) - 0.1; });
+
+var borderArc = d3.svg.arc()
+  		.innerRadius(radius)
+  		.outerRadius(radius+200)
+  		.startAngle(0)
+  		.endAngle(2 * Math.PI);
+
 
 
 // Global Variables
@@ -93,7 +95,7 @@ var freezeBreadCrumb = false;     // Freeze the breadcrumb trail when an individ
 d3.csv('CleanCSV.csv', function (error, data) {
   parsedCSV = data;                                   // Cache unfiltered array of the parsed data
   populateFilterList(getAllDegreeTopics(parsedCSV));  // Create options in filter drop-down menu
-  root = formatPartition(parsedCSV, 1);               // Turn csv data array into properly formatted hierarchy for sunburst graph
+  root = formatPartition(parsedCSV);               // Turn csv data array into properly formatted hierarchy for sunburst graph
   currentRoot = currentCenter = root;                 // Initializd references to root
   createInfoLabels(root);                             // Creates elements to display relevant info about current node
   drawGraph();                                        // Inital draw paths for node blocks 
@@ -102,66 +104,58 @@ d3.csv('CleanCSV.csv', function (error, data) {
 
 });  
 //=========================================================================================
-  // window.onresize = resize;
+ 
+
+
+// function zoom2(root) {
+
+// }
 
 
 
-$(window).resize(function() {
-    if(globalResizeTimer != null) window.clearTimeout(globalResizeTimer);
+
+
+
+window.onresize = resizeDelay;
+
+// Calls resize function 150ms after window resize
+function resizeDelay() {
+  if(globalResizeTimer != null) window.clearTimeout(globalResizeTimer);
     globalResizeTimer = window.setTimeout(function() {
         resizeGraph();
-    }, 200);
-});
-  function resizeGraph() {
+    }, 150);
+}
 
-    width = window.innerWidth
-      || document.documentElement.clientWidth
-      || document.body.clientWidth;
+// Adjusts content to fit window
+function resizeGraph() {
+  width =  window.innerWidth  || document.documentElement.clientWidth  || document.body.clientWidth;
+  height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
 
-    height = window.innerHeight
-      || document.documentElement.clientHeight
-      || document.body.clientHeight;
+  radius = Math.min(width, height)*(.35);
 
-    var div = document.getElementById('graph');
-    while(div.firstChild){
-      div.removeChild(div.firstChild);
-    }
-
-    svg = d3.select("#graph").append("svg")
-        .attr("width",  width)
-        .attr("height", height)
-      .append("g")
-        .attr("transform", "translate("+width/2+","+height/2+")");
-
-    // The paths for the node blocks
-    arc = d3.svg.arc()
-        .startAngle( function(d) { return d.x; })
-        .endAngle(   function(d) { return d.x + d.dx - 0.0001 / (d.depth + 0.5); })
-        .innerRadius(function(d) { return radius / 3 * d.depth; })
-        .outerRadius(function(d) { return radius / 3 * (d.depth + 1) - 1; });
-
-
-    // Global Variables
-     path;                         // All the paths to of the visualization svg 
-     partition;                    // The d3 partition type
-     currentRoot;                  // The root of the graph based on sort/filter - not influenced by zoom
-     currentCenter;                // The center node of the graph currently - changes with zoom
-     parsedCSV;                    // A preserved copy of the CSV without filtering
-     pathLevel = [];               // The text in the center of the graphic providing info of current node hovered over
-
-     currentSortType = 1;          // The order that the hierarchy tree levels are sorted
-     currentFilterType = 'none';   // Whether the theses are sorted to a given degree name
-
-     freezeBreadCrumb = false;     // Freeze the breadcrumb trail when an individual theses is clicked
-
-
-root = formatPartition(parsedCSV, 1);               // Turn csv data array into properly formatted hierarchy for sunburst graph
-  currentRoot = currentCenter = root;                 // Initializd references to root
-  createInfoLabels(root); 
-    drawGraph();
-      updateBreadcrumbs([]);                              // Start displaying breadcrumbs
-
+  var div = document.getElementById('graph');
+  while(div.firstChild){
+    div.removeChild(div.firstChild);
   }
+
+  svg = d3.select("#graph").append("svg")
+      .attr("width",  width)
+      .attr("height", height)
+    .append("g")
+      .attr("transform", "translate("+(width/2)+","+(height/2 - 75)+")");
+
+  borderArc = d3.svg.arc()
+  		.innerRadius(radius)
+  		.outerRadius(radius+200)
+  		.startAngle(0)
+  		.endAngle(2 * Math.PI);
+
+  root = formatPartition(parsedCSV, 1);               // Turn csv data array into properly formatted hierarchy for sunburst graph
+  currentRoot = currentCenter = root;                 // Initializd references to root
+  drawGraph();
+  pathLevel = [];
+  createInfoLabels(root);
+}
 
 
 
@@ -175,6 +169,7 @@ function refreshGraph(sortList) {
   root = formatPartition(parsedCSV);            // Turn csv data array into properly formatted hierarchy for sunburst graph
   currentRoot = currentCenter = root;           // Initialize references to root
   createInfoLabels(root);                       // Creates elements to display relevant info about current node
+  pathLevel = [];
   drawGraph();                                  // Inital draw paths for node blocks
 }
 
@@ -185,8 +180,9 @@ function filterGraph(filterList) {
   currentFilterType = filterList.value;
   root = formatPartition(newCSV); 
   currentRoot = currentCenter = root;
-  createInfoLabels(root);                                   
   drawGraph();  
+  pathLevel = [];
+  createInfoLabels(root);                                   
   d3.select('#trail').select('g').select('text')[0][0].innerHTML = root.name; 
 }
 
@@ -216,7 +212,7 @@ function formatPartition(data) {
 
   // Define some of the parameters of each node object
   partition
-    .value(function(d) { return d.size; })
+    .value(function(d) { return d.arcSize; })
     .nodes(root)
     .forEach(function(d) {
       d._children = d.children;     // Some functions use _children 
@@ -229,7 +225,7 @@ function formatPartition(data) {
   // Change the 'depth < 2' to change max levels shown at once
   partition
     .children(function(d, depth) { return depth < 2 ? d._children : null; })
-    .value(function(d) { return d.arcSize; });
+    // .value(function(d) { return d.arcSize; });
 
   // Update Root Name
   if (currentFilterType != 'none') root.name = currentFilterType;
@@ -302,7 +298,7 @@ function renameKeys(d) {
 //=========================================================================================
 function key(d) {
   var k = [], p = d;
-  while (p.depth) k.push(p.name), p = p.parent;
+  while (p.depth) k.push(p.x), p = p.parent;
   return k.reverse().join(".");
 }
 
@@ -515,10 +511,20 @@ function arcTween(b) {
   return function(t) { return arc(i(t)); };
 }
 
+
+
+
 //=========================================================================================
 // Update arc properties / coordinates
 //=========================================================================================
-function updateArc(d) { return { depth: d.depth, x: d.x, dx: d.dx }; }
+function updateArc(d) { 
+  return { depth: d.depth, x: d.x, dx: d.dx }; 
+}
+
+
+
+
+
 
 //=========================================================================================
 // Controls how graph zooms in and out
@@ -528,6 +534,7 @@ function zoomIn(p) {
   if (p.hasOwnProperty('original') && (p.depth == 1)) 
     freezeBreadCrumb = true;
 
+
   if (p.depth > 1) p = p.parent;
   if (!p.children) {          // Update breadcrumb and re-freeze
     updateBreadcrumbs(getAncestors(p));
@@ -535,6 +542,7 @@ function zoomIn(p) {
   } 
   zoom(p, p);
 }
+
 
 function zoomOut(p) {
   freezeBreadCrumb = false;
@@ -556,6 +564,13 @@ function zoom(root, p) {
       exitArc,
       outsideAngle = d3.scale.linear().domain([0, 2 * Math.PI]);
 
+
+  // function insideArc(d) {
+  //   return p.key > d.key
+  //       ? {depth: (d.depth > 1) ? d.depth-1 : d.depth, x: 0, dx: 0} : p.key < d.key
+  //       ? {depth: (d.depth > 1) ? d.depth-1 : d.depth, x: 2 * Math.PI, dx: 0}
+  //       : {depth: (d.depth > 1) ? 0 : 1, x: 0, dx: 2 * Math.PI};
+  // }
   function insideArc(d) {
     return p.key > d.key
         ? {depth: d.depth - 1, x: 0, dx: 0} : p.key < d.key
@@ -564,7 +579,9 @@ function zoom(root, p) {
   }
 
   function outsideArc(d) {
-    return {depth: d.depth + 1, x: outsideAngle(d.x), dx: outsideAngle(d.x + d.dx) - outsideAngle(d.x)};
+  	    return {depth: d.depth+1, x: outsideAngle(d.x), dx: outsideAngle(d.x + d.dx) - outsideAngle(d.x)};
+
+    // return {depth: (d.depth == 2) ? d.depth : d.depth+1, x: outsideAngle(d.x), dx: outsideAngle(d.x + d.dx) - outsideAngle(d.x)};
   }
 
   center.datum(root);
@@ -579,25 +596,39 @@ function zoom(root, p) {
   // Exiting outside arcs transition to the new layout.
   if (root !== p) enterArc = insideArc, exitArc = outsideArc, outsideAngle.range([p.x, p.x + p.dx]);
 
+
+  
+ 
+
   // Draw new paths and remove old ones
   d3.transition().duration(750).each(function() {
     path.exit().transition()
-        .style("fill-opacity", function(d) { return d.depth === 1 + (root === p) ? 1 : 0; })
-        .attrTween("d", function(d) { return arcTween.call(this, exitArc(d)); })
+        .style('fill-opacity', function(d) { return (d.depth === 1 + (root === p)) ? 1 : 0; })
+        .attrTween('d', function(d) { return arcTween.call(this, exitArc(d)); })
         .remove();
     
-    path.enter().append("path")
-        .style("fill-opacity", function(d) { return d.depth === 2 - (root === p) ? 1 : 0; })
-        .style("fill",   function(d) { return d.fill; })
-        .on("mouseover", function(d) { return nodeMouseOver(d); } )
-        .on("mouseout",  function(d) { return nodeMouseOut(d); })
-        .on("click", zoomIn)
+    path.enter().append('path')
+        .style('fill-opacity', function(d) { return d.depth === 2 - (root === p) ? 1 : 0; })
+        .style('fill',   function(d) { return d.fill; })
+        .on('mouseover', function(d) { return nodeMouseOver(d); } )
+        .on('mouseout',  function(d) { return nodeMouseOut(d); })
+        .on('click', zoomIn)
         .each(function(d) { this._current = enterArc(d); });
 
     path.transition()
-        .style("fill-opacity", 1)
-        .attrTween("d", function(d) { return arcTween.call(this, updateArc(d)); });
+        .style('fill-opacity', 1)
+        .attrTween('d', function(d) { return arcTween.call(this, updateArc(d)); });
   });
+
+
+
+ d3.select('#borderArc').remove();
+  svg.append('path')
+	.attr('id', 'borderArc')
+	.style('fill', 'white')
+	.attr('d', borderArc);
+
+
 
   // Remove old labels
   d3.selectAll('#nodeLabel').remove(); 
@@ -607,12 +638,11 @@ function zoom(root, p) {
   .enter().append('text')
     .attr('id', 'nodeLabel')
     .attr('transform', function(d) { return 'rotate(' + computeTextRotation(d) + ')'; })
-    .attr('x', function(d) {
+    .attr('x', function(d, i) {
       if (d.hasOwnProperty('original')) d.y = radius/3 * d.depth;
-      if (computeTextRotation(d)+90 < 180) return d.y + 10;
-      else return -d.y -10; })
-    .attr('dy', '.1em') 
-    .attr('font-size', 11)
+      if (computeTextRotation(d)+90 < 180) return d.y + 10*(radius/340);
+      else return -d.y -10*(radius/340); })
+    .attr('font-size', 11*(radius/340))
     .attr('fill', 'white')
     .attr('fill-opacity', 0)
     .transition().delay(600)
@@ -638,15 +668,16 @@ function nodeMouseOver(n) {
   var ancestorList = getAncestors(n);
 
   // Dim all but path to current node
-  svg.selectAll("path")
-      .filter(function(n) { return !(ancestorList.indexOf(n) >= 0); })
-      .style("opacity", .75);
+  svg.selectAll('path')
+      .filter(function(n) { return !((ancestorList.indexOf(n) >= 0) || (n != d3.select('borderArc'))); })
+      // .transition().duration(150)
+      .style('opacity', .75);
 
   // Provide info about current node
   var i = 4, level = 'n';
-  for (; i > n.trueDepth; i--) pathLevel[i-1].text("");
+  for (; i > n.trueDepth; i--) pathLevel[i-1].text('');
   for (; i > 0; i--) {
-    pathLevel[i-1].text(eval(level+".name").substring(0,20));
+    pathLevel[i-1].text(eval(level+'.name').substring(0,20));
     level += '.parent';
   }
 
@@ -666,7 +697,9 @@ function nodeMouseOut(n) {
   ancestorList = getAncestors(n);
 
   // Restore opacity
-  d3.selectAll("path").style("opacity", 1);
+  d3.selectAll("path")
+    // .transition().duration(150)
+    .style("opacity", 1);
 
   // Get ancestors of current node - i.e root to current
   ancestorList = ancestorList.splice(0, ancestorList.length - (n.depth));
@@ -693,11 +726,12 @@ function nodeMouseOut(n) {
 // Creates elements to display relevant info about current node
 //=========================================================================================
 function createInfoLabels(root) {
+
   for (i = 0; i < 7; i++) {
     pathLevel.push(svg.append("text")
         .attr("x", 0)
-        .attr("y",5+ 20*i-60)
-        .attr("font-size", 18)
+        .attr("y",5+ (20*i)*(1.2*radius/340)-60*(1.2*radius/340))
+        .attr("font-size", 17*(radius/340))
         .attr("text-anchor", "middle")
         .style("fill", "gray"));
   }
@@ -724,7 +758,7 @@ function drawGraph() {
   path = svg.selectAll('path').remove();          
   svg.selectAll('path').style('fill-opacity', .1);
   path = svg.selectAll('path')
-      .data(partition.nodes(root).slice(1))
+      .data(partition.nodes(currentRoot).slice(1))
     .enter().append('path')
       .attr('d', arc)
       .style('fill',   function(d){ return d.fill; })
@@ -741,12 +775,11 @@ function drawGraph() {
     .data(partition.nodes(root).slice(1)).enter().append('text')
       .attr('id', 'nodeLabel')
       .attr('transform', function(d) { return 'rotate(' + computeTextRotation(d) + ')'; })
-      .attr('x', function(d) {
+      .attr('x', function(d,i) {
         if (d.hasOwnProperty('original')) d.y = radius/3 * d.depth;
-        if (computeTextRotation(d)+90 < 180) return d.y + 10;
-        else return -d.y -10; })
-      .attr('dy', '.1em') 
-      .attr('font-size', 11)
+        if (computeTextRotation(d)+90 < 180) return d.y + 10*(radius/340);
+        else return -d.y -10*(radius/340); })
+      .attr('font-size', 11*(radius/340))
       .attr('fill', 'white')
       .attr('fill-opacity', 0)
       .transition()
@@ -757,6 +790,16 @@ function drawGraph() {
       .attr('alignment-baseline', 'middle')
       .attr('pointer-events', 'none')
       .text(function(d) { return cleanText(d.name).substring(0,17); });
+
+
+
+      d3.select('#borderArc').remove();
+  svg.append('path')
+	.attr('id', 'borderArc')
+	.style('fill', 'white')
+	.attr('d', borderArc);
+
+
 }
 
 // Computes location of text on circle and prevents upsidedown labels
@@ -811,59 +854,107 @@ function updateBreadcrumbs(pathArray) {
 
   // Draw node path boxes
   entering.append('svg:polygon')
-      .attr('points', breadcrumbPoints)
-      .style('fill', function(d) { return d.fill; });
+
+
+      // .style('fill', 'white')
+      // .transition().duration(1000)
+      .style('fill', function(d) { return d.fill; })
+         // .attr('points', ['0,0',0 + ',0',0 + b.t + ',' + (b.h / 2),0 + ',' + b.h,'0,' + b.h,b.t + ',' + (b.h / 2)])
+    // .transition().duration(200)
+          .attr('points', breadcrumbPoints);
+
 
   // Draw node path text
   entering.append('svg:text')
+      // .attr('x' , 0)
+        // .transition().duration(250)
+
       .attr('x', (b.w + b.t) / 2)
       .attr('y', b.h / 2)
       .attr('dy', '0.35em')
-      .attr('font-size', 13)
+      .attr('font-size', 12)
       .attr('fill', 'white')
       .attr('text-anchor', 'middle')
-      .text(function(d) { return cleanText(d.name).substring(0,20); });
+      .text(function(d) { return cleanText(d.name).substring(0,19); });
+
+    // Draw node path text
+  // entering.append('svg:text')
+  //     .attr('x', (b.w + b.t) / 2)
+  //     .attr('y', b.h / 2)
+  //     .attr('dy', '0.35em')
+  //     .attr('font-size', 13)
+  //     .attr('fill', 'white')
+  //     .attr('text-anchor', 'middle')
+  //     .text(function(d) { return cleanText(d.name).substring(0,20); });
+
+
 
   // Set position for entering and updating nodes.
+   // g.attr('transform', function(d, i) { return 'translate(' + i * (b.w + b.s) + ', 0)'; });
+   // g.attr('transform', function(d, i) { return 'translate(' + i-1 * (b.w + b.s) + ', 0)'; });
+
+
   g.attr('transform', function(d, i) { return 'translate(' + i * (b.w + b.s) + ', 0)'; });
 
-  // Remove exiting nodes.
+  // console.log(g.exit());
+  // // Remove exiting nodes.
+  // g.exit()
+  //   .transition().duration(1000).delay(1000)
+  //   .style('fill-opacity', 0);
+
+  // g.exit().transition()
+    // .attr('transform', function(d, i) { return 'translate('  -1 * (b.w + b.s) - ', 0)'; });
+
+  // g.exit().transition().delay(1000).remove();
   g.exit().remove();
 
+
+
   // Now move and update the url at the end.
-  d3.select('#sequence').select('#thesisLink')
-      .attr('x', (pathArray.length + 0.15) * (b.w + b.s))
-      .attr('y', b.h / 2)
-      .attr('dy', '0.35em')
-      .attr('font-size', 14)
-      .attr('text-anchor', 'start')
-      .attr('href', function() { if (pathArray.length > 0) {
-          var node = pathArray[pathArray.length-1];
-          if (node.hasOwnProperty('original')) return node.original.url; }})
-      .style('fill', 'blue')
-      .style('text-decoration', 'underline')
-      .text(function(){ if (pathArray.length > 0) {
-          var node = pathArray[pathArray.length-1];
-          if (node.hasOwnProperty('original')) // Is an individual article
-            return (node.original.title.length > 45) ? 
-              node.original.title.substring(0,42) + '...' : node.original.title;
-        } 
-        else return '';
-      });
+  // d3.select('#sequence').select('#thesisLink')
+  //     .attr('x', (pathArray.length + 0.25) * (b.w + b.s))
+  //     .attr('y', b.h / 2)
+  //     .attr('dy', '0.35em')
+  //     .attr('font-size', 14)
+  //     .attr('text-anchor', 'start')
+  //     .attr('href', function() { if (pathArray.length > 0) {
+  //         var node = pathArray[pathArray.length-1];
+  //         if (node.hasOwnProperty('original')) return node.original.url; }})
+  //     .style('fill', 'blue')
+  //     .style('text-decoration', 'underline')
+  //     .text(function(){ if (pathArray.length > 0) {
+  //         var node = pathArray[pathArray.length-1];
+  //         if (node.hasOwnProperty('original')) // Is an individual article
+  //           return (node.original.title.length > 45) ? 
+  //             node.original.title.substring(0,42) + '...' : node.original.title;
+  //       } 
+  //       else return '';
+  //     });
   
   // If node being hovered over is an individual thesis, provide name with hyperlink to thesis
-  if (pathArray[pathArray.length-1].hasOwnProperty('original')) {
+  if (pathArray[pathArray.length-1].hasOwnProperty('original')) 
     var link = pathArray[pathArray.length-1].original.url;
- 
-    // Now move and update the link at the end.
-    d3.select("#trail").select("#thesisLink")
-      .attr("x", (pathArray.length + 0.5) * (b.w + b.s) - 50)
-      .attr("y", b.h / 2)
-      .attr("dy", "0.35em")
-      .attr("text-anchor", "left")
-      .on('click', function(){ window.open(link, '_blank'); })
-      .text(pathArray[pathArray.length-1].name.substring(0,40));
-  }
+  else var link = "";
+  
+
+  // Now move and update the link at the end.
+  d3.select("#trail").select("#thesisLink")
+    .attr("x", (pathArray.length + 0.5) * (b.w + b.s) - 50)
+    .attr("y", b.h / 2)
+    .attr("dy", "0.35em")
+    .style('fill', 'blue')
+    .style('text-decoration', 'underline')
+    .attr("text-anchor", "start")
+    .on('click', function(){ window.open(link, '_blank'); })
+    .text(function(){ if (pathArray.length > 0) {
+        var node = pathArray[pathArray.length-1];
+        if (node.hasOwnProperty('original')) // Is an individual article
+          return (node.original.title.length > 45) ? 
+            node.original.title.substring(0,42) + '...' : node.original.title;
+      } 
+      else return '';
+    });
+  
 }
 
 
@@ -877,33 +968,37 @@ function downloadCsv() {
   // Creates csv text from array of thesis objects
   var csvContent = convertToCSVText(grabOriginals(currentCenter, []));
 
-// download(encodeURI(csvContent), "dlText.txt", "data:download");
-// download(encodeURI(csvContent), "export.csv", "text/csv;charset=utf-8");
+
+  // Works on Chrome and Firefox, Safari as Unknown file, not on Explorer or Edge
+  // var a = document.body.appendChild(document.createElement("a"));
+    // a.download  = "export.csv";
+    // a.href      = "data:octet-stream/csv;charset=utf-8," + encodeURI(csvContent);
+    // // a.target    = "_blank"
+    // a.innerHTML = "download csv";
+    // a.click();
+    // document.body.removeChild(a);
+
+var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) { // IE 10+
+        navigator.msSaveBlob(blob, 'export.csv');
+    } else {
+        var link = document.createElement("a");
+        if (link.download !== undefined) { // feature detection
+            // Browsers that support HTML5 download attribute
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", 'export.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+      }
 
 
-// Replaces viz
-  // var encodedUri = encodeURI(csvContent);
-  // var link = document.createElement("a");
-  // link.setAttribute("href", encodedUri);
-  // link.setAttribute("download", "data.csv");
-  // document.body.appendChild(link); // Required for FF
-
-  // link.click(); 
 
 
-// var uri = 'data:text/plain;charset=UTF-8,' + encodeURI(csvContent);
-// var uri = 'data:download/csv;charset=UTF-8,' + encodeURI(csvContent);
-// window.open(uri);
 
-
-// Works on Chrome and Firefox, Safari as Unknown file, not on Explorer or Edge
-  var a = document.body.appendChild(document.createElement("a"));
-    a.download  = "export.csv";
-    a.href      = "data:download/csv;charset=utf-8," + encodeURI(csvContent);
-    a.target    = "_blank"
-    a.innerHTML = "download csv";
-    a.click();
-    document.body.removeChild(a);
 
 
   function promptContinue() {
@@ -957,5 +1052,25 @@ function downloadCsv() {
   }
 
 }
+
+// download(encodeURI(csvContent), "dlText.txt", "data:download");
+// download(encodeURI(csvContent), "export.csv", "text/csv;charset=utf-8");
+
+
+// Replaces viz
+  // var encodedUri = encodeURI(csvContent);
+  // var link = document.createElement("a");
+  // link.setAttribute("href", encodedUri);
+  // link.setAttribute("download", "data.csv");
+  // document.body.appendChild(link); // Required for FF
+
+  // link.click(); 
+
+
+// var uri = 'data:text/plain;charset=UTF-8,' + encodeURI(csvContent);
+// var uri = 'data:download/csv;charset=UTF-8,' + encodeURI(csvContent);
+// window.open(uri);
+
+
 
 
