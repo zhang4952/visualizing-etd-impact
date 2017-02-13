@@ -62,7 +62,7 @@ var svg = d3.select('#graph').append('svg')
 // The paths for the node blocks
 var arc = d3.svg.arc()
     .startAngle( function(d) { return d.x; })
-    .endAngle(function(d) { return d.x + d.dx ; })
+    .endAngle(   function(d) { return d.x + d.dx ; })
     .innerRadius(function(d) { return radius / 3 * d.depth; })
     .outerRadius(function(d) { return radius / 3 * (d.depth + 1) - 0.1; });
 
@@ -169,7 +169,7 @@ function refreshGraph(sortList) {
   root = formatPartition(parsedCSV);            // Turn csv data array into properly formatted hierarchy for sunburst graph
   currentRoot = currentCenter = root;           // Initialize references to root
   createInfoLabels(root);                       // Creates elements to display relevant info about current node
-  pathLevel = [];
+  // pathLevel = [];
   drawGraph();                                  // Inital draw paths for node blocks
 }
 
@@ -181,7 +181,7 @@ function filterGraph(filterList) {
   root = formatPartition(newCSV); 
   currentRoot = currentCenter = root;
   drawGraph();  
-  pathLevel = [];
+  // pathLevel = [];
   createInfoLabels(root);                                   
   d3.select('#trail').select('g').select('text')[0][0].innerHTML = root.name; 
 }
@@ -971,14 +971,16 @@ function downloadCsv() {
 
   // Works on Chrome and Firefox, Safari as Unknown file, not on Explorer or Edge
   // var a = document.body.appendChild(document.createElement("a"));
-    // a.download  = "export.csv";
-    // a.href      = "data:octet-stream/csv;charset=utf-8," + encodeURI(csvContent);
-    // // a.target    = "_blank"
-    // a.innerHTML = "download csv";
-    // a.click();
-    // document.body.removeChild(a);
+  //   a.download  = "export.csv";
+  //   a.href      = "data:octet-stream/csv;charset=utf-8," + encodeURI(csvContent);
+  //   // a.target    = "_blank"
+  //   a.innerHTML = "download csv";
+  //   a.click();
+  //   document.body.removeChild(a);
 
-var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+
+  var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     if (navigator.msSaveBlob) { // IE 10+
         navigator.msSaveBlob(blob, 'export.csv');
     } else {
@@ -993,7 +995,61 @@ var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             link.click();
             document.body.removeChild(link);
         }
-      }
+    }
+
+
+
+
+// // Opera 8.0+
+// var isOpera = (!!window.opr && !!opr.addons) || !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+
+// // Firefox 1.0+
+// var isFirefox = typeof InstallTrigger !== 'undefined';
+
+// // Safari 3.0+ "[object HTMLElementConstructor]" 
+// var isSafari = /constructor/i.test(window.HTMLElement) || (function (p) { return p.toString() === "[object SafariRemoteNotification]"; })(!window['safari'] || safari.pushNotification);
+
+// // Internet Explorer 6-11
+// var isIE = /*@cc_on!@*/false || !!document.documentMode;
+
+// // Edge 20+
+// var isEdge = !isIE && !!window.StyleMedia;
+
+// // Chrome 1+
+// var isChrome = !!window.chrome && !!window.chrome.webstore;
+
+// // Blink engine detection
+// var isBlink = (isChrome || isOpera) && !!window.CSS;
+
+  
+//   if (isSafari){
+//   // Works on Chrome and Firefox, Safari as Unknown file, not on Explorer or Edge
+//     var a = document.body.appendChild(document.createElement("a"));
+//     a.download  = "export.csv";
+//     a.href      = "data:octet-stream/csv;charset=utf-8," + encodeURI(csvContent);
+//     // a.target    = "_blank"
+//     a.innerHTML = "download csv";
+//     a.click();
+//     document.body.removeChild(a);
+//   }
+//   else {
+//     var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+//     if (navigator.msSaveBlob) { // IE 10+
+//         navigator.msSaveBlob(blob, 'export.csv');
+//     } else {
+//         var link = document.createElement("a");
+//         if (link.download !== undefined) { // feature detection
+//             // Browsers that support HTML5 download attribute
+//             var url = URL.createObjectURL(blob);
+//             link.setAttribute("href", url);
+//             link.setAttribute("download", 'export.csv');
+//             link.style.visibility = 'hidden';
+//             document.body.appendChild(link);
+//             link.click();
+//             document.body.removeChild(link);
+//         }
+//     }
+//   }
 
 
 
